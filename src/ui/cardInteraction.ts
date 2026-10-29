@@ -127,8 +127,9 @@ export class CardInteraction {
   };
 
   private inHand(x: number, y: number) {
-    const rect = this.app.querySelector('.play-area')!.getBoundingClientRect();
-    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    // The lower quarter is a logical drop boundary, never a separate layout panel.
+    const rect = this.app.querySelector('.game-shell')!.getBoundingClientRect();
+    return x >= rect.left && x <= rect.right && y >= rect.top + rect.height * 0.75 && y <= rect.bottom;
   }
 
   private actionAt(x: number, y: number): Action | undefined {

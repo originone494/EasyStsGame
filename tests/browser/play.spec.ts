@@ -16,9 +16,11 @@ async function seed(page:Page,value:number) {
 }
 test.beforeEach(async({page})=>{await page.setViewportSize({width:1440,height:1000});await page.goto('/');});
 
-test('手牌在底部四分之一悬浮，左键拿起后无目标放置返回，不消耗牌',async({page})=>{
- const hand=await page.locator('.play-area').boundingBox();expect(hand!.y).toBeCloseTo(750,0);expect(hand!.height).toBeCloseTo(250,0);
- expect(await page.locator('.play-area').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+test('同一场景中展示完整尺寸卡牌，无独立手牌面板；无目标放置不消耗',async({page})=>{
+ await expect(page.locator('.play-area, .hand-table')).toHaveCount(0);
+ expect(await page.locator('.hand-overlay').evaluate(el=>el.parentElement?.classList.contains('arena'))).toBe(true);
+ expect(await page.locator('.hand-overlay').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+ const height=await page.locator('.hand .card-combo').evaluate(el=>(el as HTMLElement).offsetHeight);expect(height).toBe(300);
  const card=page.locator('.hand .card-combo');await card.click();await expect(page.locator('.held-card')).toHaveCount(1);await expect(cards(page)).toHaveCount(3);
  const point=await emptySpot(page);await page.mouse.click(point.x,point.y);
  await expect(page.locator('.held-card')).toHaveCount(0);await expect(cards(page)).toHaveCount(3);await expect(page.locator('.discard-pile>b')).toHaveText('0');
@@ -36,7 +38,7 @@ test('拖出后没有敌人则返回；曾经指向敌人不会留下过期目�
  await expect(cards(page)).toHaveCount(3);await expect(page.locator('[data-target="2"] .hp-label')).toContainText('10/10');
 });
 test('拖回手牌区域不出牌',async({page})=>{
- const rect=await page.locator('.play-area').boundingBox();await dragTo(page,page.locator('.hand .card-strike'),{x:rect!.x+200,y:rect!.y+80});
+ const rect=await page.locator('.game-shell').boundingBox();await dragTo(page,page.locator('.hand .card-strike'),{x:rect!.x+200,y:rect!.y+rect!.height*.85});
  await expect(page.locator('.held-card')).toHaveCount(0);await expect(cards(page)).toHaveCount(3);await expect(page.locator('.discard-pile>b')).toHaveText('0');
 });
 test('点击拿牌后移动再点击敌人，可打出且完成最后击杀治疗',async({page})=>{
@@ -96,9 +98,10 @@ for(const [index,name] of ['单侧追击','双侧包围','边界压力'].entries
  });
 }
 
-test('1280×720 桌面尺寸仍以底部四分之一为手牌区，点击拿牌可正常使用',async({page})=>{
+test('1280×720 不把卡牌压缩进四分之一面板，点击拿牌可正常使用',async({page})=>{
  await page.setViewportSize({width:1280,height:720});
- const rect=await page.locator('.play-area').boundingBox();expect(rect!.y).toBeCloseTo(540,0);expect(rect!.height).toBeCloseTo(180,0);
+ await expect(page.locator('.play-area')).toHaveCount(0);
+ expect(await page.locator('.hand .card-strike').evaluate(el=>(el as HTMLElement).offsetHeight)).toBe(270);
  await page.locator('.hand .card-strike').click();await page.locator('[data-target="2"]').click();
  await expect(page.locator('[data-target="2"] .hp-label')).toContainText('6/10');
 });
@@ -108,3 +111,20 @@ test('键盘可拿牌、选敌人和使用无目标牌',async({page})=>{
  await page.locator('.hand .card-prepare').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');
  await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.discard-pile>span')).toHaveText('消耗 1 · 执行 0');
 });
+
+for(const [width,height] of [[640,720],[800,600],[1280,720],[1920,1080]]){
+ test(`${width}×${height}：战场边界等于窗口边界，13 格全部可见，无滚动`,async({page})=>{
+  await page.setViewportSize({width,height});
+  const geometry=await page.locator('.battlefield').evaluate(el=>{
+   const rect=el.getBoundingClientRect();
+   return {left:rect.left,right:rect.right,width:rect.width,client:el.clientWidth,scroll:el.scrollWidth,cells:[...el.children].map(c=>{const r=c.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};})};
+  });
+  expect(geometry.left).toBeCloseTo(0,0);expect(geometry.right).toBeCloseTo(width,0);expect(geometry.cells).toHaveLength(13);expect(geometry.scroll).toBeLessThanOrEqual(geometry.client+1);
+  for(const cell of geometry.cells){expect(cell.left).toBeGreaterThanOrEqual(-1);expect(cell.right).toBeLessThanOrEqual(width+1);expect(cell.width).toBeCloseTo(width/13,0);}
+  const scene=await page.locator('.arena').boundingBox();expect(scene).toEqual({x:0,y:0,width,height});
+  await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();
+  await expect(page.locator('.cell').first().locator('[data-target]')).toBeInViewport({ratio:1});
+  await page.locator('.cell').first().locator('[data-target]').click();
+  expect(await page.locator('.battlefield-track').evaluate(el=>el.scrollLeft)).toBe(0);
+ });
+}

@@ -11,7 +11,7 @@ async function raster(svg,path,width,height){
   const pixels=ctx.getImageData(0,0,width,height);for(let i=0;i<pixels.data.length;i+=4){for(let c=0;c<3;c++)pixels.data[i+c]=Math.round(pixels.data[i+c]/12)*12;pixels.data[i+3]=pixels.data[i+3]<80?0:255;}ctx.putImageData(pixels,0,0);return canvas.toDataURL('image/png').split(',')[1];
  },{svg,width,height});await writeFile(path,Buffer.from(data,'base64'));
 }
-await raster(await readFile('public/art/forest.svg','utf8'),'public/art/forest.png',480,195);
+await raster(await readFile('public/art/forest.svg','utf8'),'public/art/forest.png',480,240);
 for(const kind of ['player','crawler','runner','brute'])await raster(figure(kind),`public/art/${kind}.png`,35,45);
 for(const key of ['strike','combo','step','push','prepare','debugHeal'])await raster(cardArt(key),`public/art/card-${key}.png`,70,78);
 await browser.close();
