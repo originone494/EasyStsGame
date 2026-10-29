@@ -1,0 +1,4 @@
+# Keep Windows launchers byte-for-byte, including CRLF line endings.
+*.cmd -text whitespace=cr-at-eol
+# Preserve the uploaded design document exactly; Markdown uses intentional hard breaks.
+docs/游戏策划案_最终整合版_V15.7.md -text -whitespace
