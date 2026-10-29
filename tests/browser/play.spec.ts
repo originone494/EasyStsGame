@@ -4,15 +4,15 @@ async function center(locator:Locator) {
  const box=await locator.boundingBox(); if(!box)throw new Error('操作目标不可见');
  return {x:box.x+box.width/2,y:box.y+box.height/2};
 }
-async function emptySpot(page:Page) { const box=await page.locator('.scene-heading').boundingBox();return{x:box!.x+300,y:box!.y+80}; }
+async function emptySpot(page:Page) { const box=await page.locator('.arena').boundingBox();return{x:box!.width*.27,y:box!.height*.22}; }
 async function dragTo(page:Page,card:Locator,to:{x:number;y:number}) {
  await card.hover(); const from=await center(card);await page.mouse.move(from.x,from.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:12});await page.mouse.up();
 }
 async function scenario(page:Page,name:string) {
- await page.getByText('开发用固定局面',{exact:true}).click();await page.getByRole('button',{name,exact:true}).click();
+ const id:Record<string,string>={'最后击杀后治疗':'heal','空牌堆与执行区':'empty','接触致死':'lethal','击退传递':'chain'};await page.goto('/?scenario='+id[name]);
 }
 async function seed(page:Page,value:number) {
- await page.getByText('开发用固定局面',{exact:true}).click();await page.locator('#seed').fill(String(value));await page.locator('#seed').press('Tab');
+ await page.goto('/?seed='+value);
 }
 test.beforeEach(async({page})=>{await page.setViewportSize({width:1440,height:1000});await page.goto('/');});
 
@@ -24,7 +24,7 @@ test('同一场景中展示完整尺寸卡牌，无独立手牌面板；无目�
  const card=page.locator('.hand .card-combo');await card.click();await expect(page.locator('.held-card')).toHaveCount(1);await expect(cards(page)).toHaveCount(3);
  const point=await emptySpot(page);await page.mouse.click(point.x,point.y);
  await expect(page.locator('.held-card')).toHaveCount(0);await expect(cards(page)).toHaveCount(3);await expect(page.locator('.discard-pile>b')).toHaveText('0');
- await expect(page.getByText('未选择合法目标，卡牌已返回手牌。',{exact:true})).toBeVisible();
+ await expect(page.locator('.held-card')).toHaveCount(0);
 });
 test('左键拖到敌人身上直接出牌，不再需要确认按钮',async({page})=>{
  await dragTo(page,page.locator('.hand .card-strike'),await center(page.locator('[data-target="2"]')));
@@ -54,7 +54,7 @@ test('右键取消点击拿牌和正在拖拽的牌，不造成伤害或消耗',
 });
 test('整备拖到战场直接执行抽牌与消耗',async({page})=>{
  await scenario(page,'空牌堆与执行区');await dragTo(page,cards(page),await emptySpot(page));
- await expect(cards(page)).toHaveCount(2);await expect(page.locator('.discard-pile>span')).toHaveText('消耗 1 · 执行 0');
+ await expect(cards(page)).toHaveCount(2);await expect(page.locator('.discard-pile')).toHaveAttribute('aria-label',/消耗 1 张，执行 0 张/);
 });
 test('移动牌只在方向标记处执行；越界或被占据不消耗',async({page})=>{
  await seed(page,0);await page.locator('.hand .card-step').click();await page.locator('[data-play-direction="-1"]').click();
@@ -62,7 +62,7 @@ test('移动牌只在方向标记处执行；越界或被占据不消耗',async(
  await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();
  await page.locator('.hand .card-step').click();await page.locator('[data-play-direction="-1"]').click();
  await expect(page.locator('.player-cell .coordinate')).toHaveText('01');await expect(cards(page)).toHaveCount(3);await expect(page.locator('.discard-pile>b')).toHaveText('0');
- await expect(page.getByText('移动终点被占据或超出边界，请选择其他方向。',{exact:true})).toBeVisible();
+ await expect(page.locator('.move-choice')).toHaveCount(0);
 });
 test('Esc、窗口失焦和回合切换清理拿牌状态',async({page})=>{
  await page.locator('.hand .card-strike').click();await page.keyboard.press('Escape');await expect(page.locator('.held-card')).toHaveCount(0);
@@ -71,13 +71,13 @@ test('Esc、窗口失焦和回合切换清理拿牌状态',async({page})=>{
 });
 test('接触失败仍可重开和切换战斗',async({page})=>{
  await scenario(page,'接触致死');await page.getByRole('button',{name:'结束回合 →'}).click();await expect(page.getByRole('heading',{name:'战斗失败'})).toBeVisible();
- await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();await expect(page.getByRole('heading',{name:'双侧包围'})).toBeVisible();
+ await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();await expect(page.locator('.enemy')).toHaveCount(3);
 });
 for(const [index,name] of ['单侧追击','双侧包围','边界压力'].entries()){
  test(`${name}：通过新版拿牌操作打到胜利并重开`,async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   for(let i=0;i<index;i++)await page.getByRole('button',{name:'切换测试战斗',exact:true}).click();
-  await expect(page.getByRole('heading',{name})).toBeVisible();
+  await expect(page.locator('.enemy')).toHaveCount([2,3,4][index]);
   if(index===0)await page.screenshot({path:'test-results/battlefield.png',fullPage:true});
   for(let turn=0;turn<15;turn++){
    if(await page.getByRole('heading',{name:'战斗胜利'}).count())break;
@@ -109,7 +109,7 @@ test('键盘可拿牌、选敌人和使用无目标牌',async({page})=>{
  await page.locator('.hand .card-strike').focus();await page.keyboard.press('Enter');await expect(page.locator('.held-card')).toHaveCount(1);
  await page.locator('[data-target="2"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-target="2"] .hp-label')).toContainText('6/10');
  await page.locator('.hand .card-prepare').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');
- await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.discard-pile>span')).toHaveText('消耗 1 · 执行 0');
+ await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.discard-pile')).toHaveAttribute('aria-label',/消耗 1 张，执行 0 张/);
 });
 
 for(const [width,height] of [[640,720],[800,600],[1280,720],[1920,1080]]){

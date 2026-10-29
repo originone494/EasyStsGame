@@ -52,13 +52,7 @@ export class CardInteraction {
     if (held.pointerId !== undefined && held.source.hasPointerCapture(held.pointerId)) {
       held.source.releasePointerCapture(held.pointerId);
     }
-    this.setHint('左键拿牌，拖出手牌区使用 · 右键取消');
   };
-
-  private setHint(text: string) {
-    const hint = this.app.querySelector('.instruction-text');
-    if (hint) hint.textContent = text;
-  }
 
   private pick(source: HTMLButtonElement, x: number, y: number) {
     const state = this.callbacks.state();
@@ -76,9 +70,6 @@ export class CardInteraction {
     source.classList.add('is-held'); source.setAttribute('aria-pressed', 'true');
     this.held = { id: card.id, source, ghost, aim, startX: x, startY: y, moved: false, pickedThisPress: true };
     this.app.classList.add('holding-card');
-    this.app.querySelector('.instruction')?.classList.remove('invalid');
-    const icon = this.app.querySelector('.instruction-icon');
-    if (icon) icon.textContent = '◇';
     const def = cards[card.key];
     if (def.target === 'enemy') this.app.querySelector('.battlefield')?.classList.add('choosing-target');
     if (def.target === 'direction') {
@@ -179,7 +170,6 @@ export class CardInteraction {
     const line = `M${startX},${startY} Q${startX},${Math.min(startY, targetY) - 100} ${targetX},${targetY}`;
     held.aim.querySelectorAll('path').forEach(el => el.setAttribute('d', line));
     const end = held.aim.querySelector('circle')!; end.setAttribute('cx', String(targetX)); end.setAttribute('cy', String(targetY));
-    this.setHint(this.inHand(x, y) ? '拖出手牌区使用 · 右键取消' : valid ? '松开左键或再次点击，打出卡牌 · 右键取消' : def.target === 'enemy' ? '请对准一个敌人，无目标放置将返回手牌' : def.target === 'direction' ? '请对准队伍左右的移动标记' : '移到战场后松开或点击使用');
   }
 
   private drop(x: number, y: number) {
