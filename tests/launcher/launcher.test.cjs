@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const {planUpdate,dependencyKey,makeLauncher}=require('../../scripts/windows-launcher.cjs');
+const {planUpdate,dependencyKey,makeLauncher,installCheckout}=require('../../scripts/windows-launcher.cjs');
 const remote='https://github.com/originone494/EasyStsGame.git';
 test('更新策略保留修改、其他分支与其他来源',()=>{
  assert.equal(planUpdate({remote,dirty:false,branch:'main'}),'pull');
@@ -17,12 +17,12 @@ test('只有依赖锁或 Node 版本变化会改变安装标记',()=>{
  assert.notEqual(dependencyKey('lock','24.1'),dependencyKey('lock','24.0'));
 });
 function fixture({installed=true,dirty=false,branch='main',foreign=false,stamp=true,pullFail=false,installFail=false}={}){
- const root='/fake/user folder/EasyStsGame',repo=path.join(root,'repository'),calls=[],messages=[],writes=[];
+ const root='/fake/user folder/EasyStsGame',repo=root,calls=[],messages=[],writes=[];
  const files=new Map();
  if(installed)files.set(path.join(repo,'.git'),'git');
  for(const f of ['package-lock.json','package.json','node_modules/vite/bin/vite.js'])files.set(path.join(repo,f),f==='package-lock.json'?'lock':'present');
- if(stamp)files.set(path.join(root,'dependencies.sha256'),dependencyKey('lock','24.0'));
- const launcher=makeLauncher({root,version:'24.0',exists:p=>files.has(p),read:p=>Buffer.from(files.get(p)),write:(p,v)=>{writes.push(p);files.set(p,v)},mkdir:()=>{},output:m=>messages.push(m),run:(cmd,args,opts)=>{
+ if(stamp)files.set(path.join(root,'.easysts','dependencies.sha256'),dependencyKey('lock','24.0'));
+ const launcher=makeLauncher({install:(root,clone)=>clone(path.join(root,'.easysts','checkout-test')),root,version:'24.0',exists:p=>files.has(p),read:p=>Buffer.from(files.get(p)),write:(p,v)=>{writes.push(p);files.set(p,v)},mkdir:()=>{},output:m=>messages.push(m),run:(cmd,args,opts)=>{
   calls.push({cmd,args,...opts});
   if(args[0]==='status')return{status:0,stdout:dirty?' M content.ts':''};
   if(args[0]==='symbolic-ref')return{status:0,stdout:branch};
@@ -33,13 +33,16 @@ function fixture({installed=true,dirty=false,branch='main',foreign=false,stamp=t
  }});
  return{launcher,calls,messages,writes};
 }
-test('首次只克隆到专用目录，再安装并打开浏览器',()=>{
+test('首次暂存下载，最终在 CMD 目录安装并启动',()=>{
  const f=fixture({installed:false,stamp:false});f.launcher.launch();
  assert.deepEqual(f.calls.map(x=>x.args[0]),['clone','ci','run']);
  assert.equal(f.calls[0].args[1],'--branch');
  assert.equal(f.calls[0].args[2],'main');
  assert.ok(f.calls[2].args.includes('--open'));
  assert.ok(f.calls[2].args.includes('127.0.0.1'));
+ assert.equal(f.calls[1].cwd,f.launcher.repo);
+ assert.equal(f.calls[2].cwd,f.launcher.repo);
+ assert.equal(f.launcher.repo,'/fake/user folder/EasyStsGame');
 });
 test('重复启动使用 ff-only，依赖未变不重装',()=>{
  const f=fixture();f.launcher.launch();
@@ -64,4 +67,64 @@ test('双击文件中的 JS 与可维护源完全一致并可以加载',()=>{
  const cmd=fs.readFileSync(path.join(__dirname,'../../启动游戏.cmd'),'utf8').replace(/\r/g,'');
  const embedded=cmd.split('\n// EASYSTS_NODE_SCRIPT\n')[1];assert.equal(embedded,source);
  const module={exports:{}};vm.runInNewContext(embedded,{require,module});assert.equal(typeof module.exports.main,'function');
+});
+
+test('直接安装到启动器所在目录，已有相同启动器不被覆盖',()=>{
+ const root=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'easysts-install-'));
+ try {
+  fs.writeFileSync(path.join(root,'启动游戏.cmd'),'same launcher');
+  installCheckout(root,stage=>{
+   fs.mkdirSync(path.join(stage,'.git'));fs.mkdirSync(path.join(stage,'src'));
+   fs.writeFileSync(path.join(stage,'启动游戏.cmd'),'same launcher');
+   fs.writeFileSync(path.join(stage,'src','main.ts'),'game');
+  });
+  assert.equal(fs.readFileSync(path.join(root,'src','main.ts'),'utf8'),'game');
+  assert.ok(fs.existsSync(path.join(root,'.git')));
+  assert.ok(!fs.existsSync(path.join(root,'repository')));
+  assert.equal(fs.readdirSync(path.join(root,'.easysts')).length,0);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+test('首次下载检测到不同文件时，安装前停止并保留全部用户内容',()=>{
+ const root=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'easysts-conflict-'));
+ try {
+  fs.writeFileSync(path.join(root,'README.md'),'user file');
+  assert.throws(()=>installCheckout(root,stage=>{
+   fs.mkdirSync(path.join(stage,'.git'));
+   fs.writeFileSync(path.join(stage,'new.txt'),'new');
+   fs.writeFileSync(path.join(stage,'README.md'),'downloaded');
+  }),/同名文件/);
+  assert.equal(fs.readFileSync(path.join(root,'README.md'),'utf8'),'user file');
+  assert.ok(!fs.existsSync(path.join(root,'new.txt')));
+  assert.ok(!fs.existsSync(path.join(root,'.git')));
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+test('Windows 主入口跟随 D 盘 CMD 路径，缓存和临时文件不使用 C 盘默认路径',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../../scripts/windows-launcher.cjs'),'utf8');
+ const win=path.win32,root='D:\\我的游戏 文件夹';
+ const calls=[],writes=[],dirs=[];
+ const module={exports:{}};
+ const fakeFs={
+  mkdirSync:p=>dirs.push(p),existsSync:p=>p.endsWith('.git')||p.endsWith('package.json')||p.endsWith('package-lock.json')||p.endsWith('vite.js'),
+  readFileSync:()=>Buffer.from('lock'),writeFileSync:p=>writes.push(p),
+ };
+ const fakeSpawn=(command,args,options)=>{
+  calls.push({command,args,options});
+  if(args[0]==='symbolic-ref')return{status:0,stdout:'main'};
+  if(args[0]==='remote')return{status:0,stdout:remote};
+  return{status:0,stdout:''};
+ };
+ vm.runInNewContext(source,{module,console:{log:()=>{}},Buffer,process:{platform:'win32',versions:{node:'24.0.0'},argv:['node',win.join(root,'启动游戏.cmd')],env:{LOCALAPPDATA:'C:\\Users\\user',TEMP:'C:\\Temp'}},require:name=>{
+  if(name==='node:fs')return fakeFs;if(name==='node:path')return win;
+  if(name==='node:child_process')return{spawnSync:fakeSpawn};return require(name);
+ }});
+ await module.exports.main();
+ assert.ok(writes.length>0);
+ for(const dest of [...dirs,...writes])assert.ok(dest.startsWith(root),dest);
+ const npm=calls.filter(c=>c.command==='cmd.exe');assert.equal(npm.length,2);
+ for(const call of npm){
+  assert.equal(call.options.cwd,root);
+  assert.equal(call.options.env.npm_config_cache,win.join(root,'.easysts','npm-cache'));
+  assert.equal(call.options.env.TEMP,win.join(root,'.easysts','tmp'));
+  assert.equal(call.options.env.TMP,win.join(root,'.easysts','tmp'));
+ }
 });
