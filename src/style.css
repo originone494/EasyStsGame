@@ -202,13 +202,11 @@ img{image-rendering:pixelated;user-select:none;pointer-events:none}
 
 .aim-line{stroke:#b5aa87;stroke-width:2;stroke-dasharray:5 7}
 
-.aim-end{fill:#192e36;stroke:#b5aa87;stroke-width:2}
 
-.valid-target .aim-line,.valid-target .aim-end{stroke:#f3d28d;stroke-width:3}
+.valid-target .aim-line{stroke:#f3d28d;stroke-width:3}
 
 .valid-target .aim-line{stroke-dasharray:none}
 
-.valid-target .aim-end{fill:#edc88855}
 
 /* One full-viewport scene. HUD and cards are overlays on that same scene. */
 html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
@@ -366,3 +364,6 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 @media(max-width:800px){
  .health-track{width:125px}.game-header{gap:14px}.stats{flex:0;gap:10px}.hero-status{min-width:0}.turn-status{padding-left:12px}.deck-pile{bottom:7px;width:38px}.draw-pile{left:6px}.discard-pile{right:6px}.intent{gap:2px;padding:2px}.intent>span{padding-left:2px}.unit-name{font-size:11px}.unit-name i{font-size:10px}
 }
+
+.target-aim .aim-head{fill:#b5aa87;stroke:#07121a;stroke-width:1.5;stroke-linejoin:round}
+.target-aim.valid-target .aim-head{fill:#f3d28d}

@@ -65,7 +65,7 @@ export class CardInteraction {
     ghost.classList.add('held-card');
     const aim = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     aim.classList.add('target-aim'); aim.setAttribute('aria-hidden', 'true');
-    aim.innerHTML = '<path class="aim-shadow"/><path class="aim-line"/><circle class="aim-end" r="7"/>';
+    aim.innerHTML = '<path class="aim-shadow"/><path class="aim-line"/><path class="aim-head"/>';
     document.body.append(aim, ghost);
     source.classList.add('is-held'); source.setAttribute('aria-pressed', 'true');
     this.held = { id: card.id, source, ghost, aim, startX: x, startY: y, moved: false, pickedThisPress: true };
@@ -165,11 +165,18 @@ export class CardInteraction {
     }
     const rect = held.source.getBoundingClientRect();
     const startX = rect.left + rect.width / 2, startY = rect.top + 20;
-    held.aim.style.display = def.target === 'enemy' && !this.inHand(x, y) ? '' : 'none';
+    const aimingAtEnemy = def.target === 'enemy' && !this.inHand(x, y);
+    held.ghost.style.visibility = aimingAtEnemy ? 'hidden' : '';
+    held.aim.style.display = aimingAtEnemy ? '' : 'none';
     held.aim.classList.toggle('valid-target', valid);
-    const line = `M${startX},${startY} Q${startX},${Math.min(startY, targetY) - 100} ${targetX},${targetY}`;
-    held.aim.querySelectorAll('path').forEach(el => el.setAttribute('d', line));
-    const end = held.aim.querySelector('circle')!; end.setAttribute('cx', String(targetX)); end.setAttribute('cy', String(targetY));
+    const controlY = Math.min(startY, targetY) - 100;
+    const line = `M${startX},${startY} Q${startX},${controlY} ${targetX},${targetY}`;
+    held.aim.querySelectorAll('.aim-line, .aim-shadow').forEach(el => el.setAttribute('d', line));
+    // Orient the arrowhead along the tangent at the end of the quadratic curve.
+    const length = Math.hypot(targetX - startX, targetY - controlY);
+    const dx = (targetX - startX) / length, dy = (targetY - controlY) / length;
+    const baseX = targetX - dx * 19, baseY = targetY - dy * 19;
+    held.aim.querySelector('.aim-head')!.setAttribute('d', `M${targetX},${targetY} L${baseX - dy * 8},${baseY + dx * 8} L${baseX + dy * 8},${baseY - dx * 8} Z`);
   }
 
   private drop(x: number, y: number) {

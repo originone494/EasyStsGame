@@ -34,6 +34,10 @@ test('左键拖到敌人身上直接出牌，不再需要确认按钮',async({pa
 test('拖出后没有敌人则返回；曾经指向敌人不会留下过期目标',async({page})=>{
  const card=page.locator('.hand .card-strike');await card.click();const target=await center(page.locator('[data-target="2"]'));
  await page.mouse.move(target.x,target.y);await expect(page.locator('[data-target="2"]')).toHaveClass(/targeted/);
+ await expect(page.locator('.held-card')).toBeHidden();await expect(page.locator('.target-aim')).toBeVisible();
+ await expect(page.locator('.aim-head')).toHaveAttribute('d',/Z$/);
+ await page.mouse.move(300,850);await expect(page.locator('.held-card')).toBeVisible();await expect(page.locator('.target-aim')).toBeHidden();
+ await page.mouse.move(target.x,target.y);await expect(page.locator('.held-card')).toBeHidden();
  const blank=await emptySpot(page);await page.mouse.move(blank.x,blank.y);await expect(page.locator('.targeted')).toHaveCount(0);await page.mouse.click(blank.x,blank.y);
  await expect(cards(page)).toHaveCount(3);await expect(page.locator('[data-target="2"] .hp-label')).toContainText('10/10');
 });
@@ -53,7 +57,8 @@ test('右键取消点击拿牌和正在拖拽的牌，不造成伤害或消耗',
  await expect(cards(page)).toHaveCount(3);await expect(page.locator('[data-target="2"] .hp-label')).toContainText('10/10');await expect(page.locator('.discard-pile>b')).toHaveText('0');
 });
 test('整备拖到战场直接执行抽牌与消耗',async({page})=>{
- await scenario(page,'空牌堆与执行区');await dragTo(page,cards(page),await emptySpot(page));
+ await scenario(page,'空牌堆与执行区');await cards(page).click();const point=await emptySpot(page);await page.mouse.move(point.x,point.y);
+ await expect(page.locator('.held-card')).toBeVisible();await expect(page.locator('.target-aim')).toBeHidden();await page.mouse.click(point.x,point.y);
  await expect(cards(page)).toHaveCount(2);await expect(page.locator('.discard-pile')).toHaveAttribute('aria-label',/消耗 1 张，执行 0 张/);
 });
 test('移动牌只在方向标记处执行；越界或被占据不消耗',async({page})=>{
