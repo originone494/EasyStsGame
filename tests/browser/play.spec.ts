@@ -59,7 +59,7 @@ test('右键取消点击拿牌和正在拖拽的牌，不造成伤害或消耗',
 test('整备拖到战场直接执行抽牌与消耗',async({page})=>{
  await scenario(page,'空牌堆与执行区');await cards(page).click();const point=await emptySpot(page);await page.mouse.move(point.x,point.y);
  await expect(page.locator('.held-card')).toBeVisible();await expect(page.locator('.target-aim')).toBeHidden();await page.mouse.click(point.x,point.y);
- await expect(cards(page)).toHaveCount(2);await expect(page.locator('.discard-pile')).toHaveAttribute('aria-label',/消耗 1 张，执行 0 张/);
+ await expect(cards(page)).toHaveCount(2);await expect(page.locator('.exhaust-pile>b')).toHaveText('1');
 });
 test('移动牌只在方向标记处执行；越界或被占据不消耗',async({page})=>{
  await seed(page,0);await page.locator('.hand .card-step').click();await page.locator('[data-play-direction="-1"]').click();
@@ -114,7 +114,7 @@ test('键盘可拿牌、选敌人和使用无目标牌',async({page})=>{
  await page.locator('.hand .card-strike').focus();await page.keyboard.press('Enter');await expect(page.locator('.held-card')).toHaveCount(1);
  await page.locator('[data-target="2"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-target="2"] .hp-label')).toContainText('6/10');
  await page.locator('.hand .card-prepare').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');
- await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.discard-pile')).toHaveAttribute('aria-label',/消耗 1 张，执行 0 张/);
+ await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.exhaust-pile>b')).toHaveText('1');
 });
 
 for(const [width,height] of [[640,720],[800,600],[1280,720],[1920,1080]]){
@@ -133,3 +133,45 @@ for(const [width,height] of [[640,720],[800,600],[1280,720],[1920,1080]]){
   expect(await page.locator('.battlefield-track').evaluate(el=>el.scrollLeft)).toBe(0);
  });
 }
+
+test('抽牌堆展示全部卡牌及重复牌，查看不改变后续抽牌结果',async({page})=>{
+ const baseline=await page.context().newPage();await baseline.goto('/');
+ const before=await cards(page).evaluateAll(elements=>elements.map(el=>(el as HTMLElement).dataset.card));
+ await page.locator('[data-pile="draw"]').click();
+ const dialog=page.getByRole('dialog');await expect(dialog.getByRole('heading',{name:'抽牌堆 4 张'})).toBeVisible();
+ await expect(dialog.locator('.pile-card')).toHaveCount(4);await expect(dialog.getByRole('article',{name:'移步',exact:true})).toHaveCount(2);
+ await expect(dialog.getByText('按牌名展示，不代表抽取顺序')).toBeVisible();
+ await page.screenshot({path:'test-results/pile-browser.png'});
+ await page.getByRole('button',{name:'关闭牌堆查看'}).click();
+ expect(await cards(page).evaluateAll(elements=>elements.map(el=>(el as HTMLElement).dataset.card))).toEqual(before);
+ await page.getByRole('button',{name:'结束回合 →'}).click();await baseline.getByRole('button',{name:'结束回合 →'}).click();
+ expect(await cards(page).evaluateAll(elements=>elements.map(el=>(el as HTMLElement).dataset.card))).toEqual(await cards(baseline).evaluateAll(elements=>elements.map(el=>(el as HTMLElement).dataset.card)));
+ expect(await page.locator('.health-track').getAttribute('aria-valuenow')).toBe(await baseline.locator('.health-track').getAttribute('aria-valuenow'));
+ await baseline.close();
+});
+test('空牌堆可查看，弃牌与消耗堆准确更新，查看中的牌不能打出',async({page})=>{
+ await page.locator('[data-pile="discard"]').click();await expect(page.getByRole('dialog').getByText('此牌堆暂时没有卡牌')).toBeVisible();
+ await page.locator('[data-view-pile="exhaust"]').click();await expect(page.getByRole('heading',{name:'消耗堆 0 张'})).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('[data-pile="exhaust"]')).toBeFocused();
+ await page.locator('.hand .card-strike').click();await page.locator('[data-target="2"]').click();
+ await page.locator('.hand .card-prepare').click();const point=await emptySpot(page);await page.mouse.click(point.x,point.y);
+ await page.locator('[data-pile="discard"]').click();await expect(page.getByRole('heading',{name:'弃牌堆 1 张'})).toBeVisible();await expect(page.getByRole('article',{name:'基础攻击',exact:true})).toHaveCount(1);
+ await page.getByRole('article',{name:'基础攻击',exact:true}).click();await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.pile-dialog')).toBeVisible();
+ await page.locator('[data-view-pile="exhaust"]').click();await expect(page.getByRole('heading',{name:'消耗堆 1 张'})).toBeVisible();await expect(page.getByRole('article',{name:'整备',exact:true})).toHaveCount(1);
+ await page.getByRole('button',{name:'关闭牌堆查看'}).click();await expect(cards(page)).toHaveCount(3);await expect(page.locator('[data-target="2"] .hp-label')).toContainText('6/10');await expect(page.locator('.exhaust-pile>b')).toHaveText('1');
+});
+test('拿牌时查看牌堆会取消拿牌，遮罩和 Esc 正常关闭并恢复操作',async({page})=>{
+ await page.locator('.hand .card-strike').click();await expect(page.locator('.held-card')).toHaveCount(1);
+ await page.locator('[data-pile="draw"]').click();await expect(page.locator('.held-card')).toHaveCount(0);await expect(page.locator('.target-aim')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'结束回合 →'})).toHaveCount(0);
+ await page.mouse.click(5,5);await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('[data-pile="draw"]')).toBeFocused();
+ await page.locator('[data-pile="exhaust"]').click();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(cards(page)).toHaveCount(3);
+ await page.locator('.hand .card-strike').click();await page.locator('[data-target="2"]').click();await expect(page.locator('[data-target="2"] .hp-label')).toContainText('6/10');
+});
+test('窄窗口可滚动牌堆查看，战场仍完整且不滚动',async({page})=>{
+ await page.setViewportSize({width:640,height:720});await page.locator('[data-pile="draw"]').click();
+ await expect(page.getByRole('dialog')).toBeVisible();await expect(page.locator('.pile-card')).toHaveCount(4);
+ await page.locator('.pile-card').last().scrollIntoViewIfNeeded();await expect(page.locator('.pile-card').last()).toBeInViewport({ratio:1});
+ expect(await page.locator('.battlefield-track').evaluate(el=>el.scrollLeft)).toBe(0);
+ await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'结束回合 →'})).toBeVisible();
+});

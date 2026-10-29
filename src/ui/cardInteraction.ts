@@ -101,7 +101,7 @@ export class CardInteraction {
         source.setPointerCapture(event.pointerId);
       }
     } else if (this.held) {
-      if (target.closest('nav, .utility-bar, .end-turn, .result')) { this.cancel(); return; }
+      if (target.closest('nav, .deck-pile, .pile-dialog, .end-turn, .result')) { this.cancel(); return; }
       event.preventDefault();
       this.held.pointerId = event.pointerId;
       this.held.startX = event.clientX; this.held.startY = event.clientY;
