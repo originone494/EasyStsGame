@@ -296,7 +296,7 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 .instruction.invalid{color:#f0ab8d}
 .instruction.invalid>.instruction-icon{color:#eaa382}
 .instruction-text{font-size:inherit;color:inherit}
-.end-turn{position:absolute;right:28px;bottom:29%;pointer-events:auto;min-width:130px;padding:12px 19px;font-size:15px;border-color:#b39b6866;color:#dbc792}
+.end-turn{position:absolute;right:clamp(76px,7.5vw,120px);bottom:23%;pointer-events:auto;min-width:130px;padding:12px 19px;font-size:15px;border-color:#b39b6866;color:#dbc792}
 
 .utility-bar{position:absolute;bottom:0;left:0;right:0;z-index:12;display:flex;align-items:center;gap:20px;height:25px;min-height:0;padding:2px 25px;border:0;background:transparent;pointer-events:none}
 .utility-bar>*{pointer-events:auto}
