@@ -75,6 +75,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - `src/content/weatherScenarios.ts`：六个开发用天气局面。
 - `src/content/economy.ts`：普通战20金币＋5点指定适应，Boss100金币＋三项适应各10点，楼层上限50／100／200（均为用户确认的可调测试值）。
 - `src/content/map.ts`、`src/game/map.ts`、`run.ts`：地图配置、固定骨架／随机节点、独立RunState与顺序推进。
+- `src/ui/map.ts`、`mapArt.ts`、`map.css`：羊皮纸节点地图、原创墨线图标、地形装饰及自动定位。
 - `src/content/bossEncounters.ts`、`bossScenarios.ts`、`src/game/boss.ts`：独立Boss布局、十个开发局面、累计伤害及接触判定。
 - `src/game/scoring.ts`、`rewards.ts`、`progression.ts`：评分账本、20%保底精确奖励及临时三布局成长衔接。
 - `src/content/relics.ts`：开发局面的测试遗物，普通战斗不装配。
@@ -97,3 +98,5 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 Boss独立入口：`?battle=boss&floor=1&seed=157`（floor为1／2／3，使用正常七张牌组）。固定验收入口：`?scenario=boss99`、`boss100`、`boss110`、`bossPush`、`bossMixed`、`bossMinionContact`、`boss600`、`bossFinal`、`bossMulti`、`bossLethal`，追加`&debug=events`查看实际扣血与独立累计。Boss归零后不死亡，首次接触按输出达标结算；一二层奖励最高5倍，第三层直接通关无奖励。Boss结果的“重新开局”回到普通初始战斗，不重试失败Boss。实际地图、选卡和遗物池仍待后续步骤，详见[步骤7规格](docs/步骤7_Boss输出挑战规格与验收.md)。
 
 单局入口：点击“开始冒险”，或添加`?mode=run&seed=157`。按顺序推进三层22战＋18安全节点；未来与已完成节点可查看但不能跳关／重打。单局战斗可查看地图后返回，失败只能重新开局；第一、二层Boss成功确认结果后升层，第三层通关无奖励。每层随机5节点且至少含商店／火堆各1，另有固定Boss前火堆（用户最新规则）。精英暂不默认生成；地图显示奖励基准及楼层属性上限。刷新仍重开，不是存档。完整路线开发局面与边界见[步骤8规格](docs/步骤8_单局状态与线性地图规格及验收.md)。
+
+地图界面现为从下向上的羊皮纸节点路线，图标区分战斗、精英、Boss、商店、火堆和事件；手绘圈标记当前位置，勾和变色连线记录已走路径。点击节点在侧栏查看详情，地图独立滚动，进入或切换楼层自动定位当前位置。

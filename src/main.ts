@@ -1,4 +1,5 @@
 import './style.css';
+import './ui/map.css';
 import { createBattle, createBossBattle, type State } from './game/state';
 import { act, type Action } from './game/actions';
 import { createScenario, scenarios } from './game/scenarios';
@@ -72,9 +73,14 @@ function render() {
  interaction?.cancel();
  if(run&&(showingMap||run.runStatus==='map'||run.runStatus==='safe')){
   const scroll=app.querySelector('.run-screen')?.scrollTop??0;
+  const oldRoute=app.querySelector<HTMLElement>('.map-scroll');
+  const routeScroll=oldRoute?.scrollTop, routeFloor=oldRoute?.dataset.mapFloorView;
   app.innerHTML=run.runStatus==='safe'&&!showingMap?safeNodeScreen(run):runMap(run,mapFloor,selectedNodeId);
   if(query.get('debug')==='events')app.insertAdjacentHTML('beforeend',runInspector(run));
   const screen=app.querySelector('.run-screen');if(screen)screen.scrollTop=scroll;
+  const route=app.querySelector<HTMLElement>('.map-scroll');
+  if(route&&routeFloor===route.dataset.mapFloorView&&routeScroll!==undefined)route.scrollTop=routeScroll;
+  else if(route)focusMapNode();
   return;
  }
  if(run?.battle)state=run.battle;
@@ -85,6 +91,13 @@ function render() {
   dialog.showModal();
   dialog.querySelector<HTMLButtonElement>(`[data-view-pile="${viewingPile}"]`)?.focus();
  }
+}
+function focusMapNode() {
+ const route=app.querySelector<HTMLElement>('.map-scroll');
+ const node=app.querySelector<HTMLElement>('.map-node.selected');
+ if(!route||!node)return;
+ const container=route.getBoundingClientRect(), target=node.getBoundingClientRect();
+ route.scrollTop+=target.top-container.top-(route.clientHeight-target.height)/2;
 }
 interaction = new CardInteraction(app, {
  state: () => state,
@@ -103,8 +116,8 @@ app.addEventListener('click',event=>{
   return;
  }
  const button=(event.target as HTMLElement).closest<HTMLButtonElement>('button'); if(!button||button.disabled)return;
- if(run&&button.dataset.mapFloor){const value=Number(button.dataset.mapFloor);if([1,2,3].includes(value)){mapFloor=value;selectedNodeId=undefined;render();app.querySelector('.run-screen')?.scrollTo(0,0);}return;}
- if(run&&button.dataset.mapNode){selectedNodeId=button.dataset.mapNode;render();if(innerWidth<=800)app.querySelector('.node-detail')?.scrollIntoView({block:'start'});return;}
+ if(run&&button.dataset.mapFloor){const value=Number(button.dataset.mapFloor);if([1,2,3].includes(value)){mapFloor=value;selectedNodeId=undefined;render();focusMapNode();}return;}
+ if(run&&button.dataset.mapNode){selectedNodeId=button.dataset.mapNode;render();app.querySelector('.node-detail')?.scrollTo(0,0);return;}
  const pile=button.dataset.pile??button.dataset.viewPile;
  if(isPile(pile)&&state.status==='playing'){viewingPile=pile;render();return;}
  switch(button.dataset.action){
@@ -112,7 +125,7 @@ app.addEventListener('click',event=>{
  case 'exit-run':run=null;query.delete('mode');showingMap=false;newRun();return;
  case 'run-map':if(run){showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;viewingPile=undefined;render();}return;
  case 'run-return':if(run){showingMap=false;render();}return;
- case 'map-current':if(run){mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();app.querySelector('.run-screen')?.scrollTo(0,0);}return;
+ case 'map-current':if(run){mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();focusMapNode();}return;
  case 'run-enter':if(run?.runStatus==='map'&&button.dataset.nodeId===currentNode(run).id){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
  case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();}return;
  case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;feedback=[];render();}return;
