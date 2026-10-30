@@ -2,12 +2,14 @@
 export type InstanceId = number;
 export type Effect =
   | { type: 'damage'; amount: number; hits?: number }
-  | { type: 'draw' | 'heal' | 'push' | 'move'; amount: number };
+  | { type: 'draw' | 'heal' | 'push' | 'move' | 'loseHp'; amount: number }
+  | { type: 'listen'; listener: ListenerDefinition };
 
 export interface CardDefinition {
   name: string;
   kind: string;
   description: string;
+  art?: string;
   target: 'enemy' | 'direction' | 'none';
   effects: Effect[];
   exhaust?: boolean;
@@ -35,11 +37,49 @@ export interface EncounterDefinition {
 }
 export interface BattleConfig { size: number; maxHp: number; handSize: number; seed: number; character: string }
 
-// Fact log only. FIFO dispatch and listener snapshots belong to step 2.
+// Compatibility facts used by the existing floating combat feedback.
 export interface BattleEvent {
   type: 'collision' | 'damage' | 'death' | 'move' | 'draw' | 'heal';
   actor?: InstanceId; target?: InstanceId; amount?: number;
 }
+export type EventType = 'CARD_PLAYED' | 'DAMAGE_RESOLVED' | 'HP_LOST' | 'ENEMY_DIED'
+  | 'ENEMY_CONTACT' | 'COLLISION' | 'UNIT_MOVED' | 'CARD_DRAWN' | 'CARD_EXHAUSTED'
+  | 'TURN_STARTED' | 'HEALED';
+export type EntityRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number }
+  | { kind: 'card' | 'relic' | 'temporary'; id: number; key: string }
+  | { kind: 'system'; id: string };
+export interface EventContext { source: EntityRef; parentId: number | null; allowChain: boolean }
+export interface GameEvent extends EventContext {
+  id: number; sequence: number; type: EventType; target: EntityRef | null; value: number; actor: EntityRef | null;
+}
+export interface EventTrace {
+  kind: 'enqueue' | 'dequeue' | 'snapshot' | 'trigger' | 'skip' | 'cancel' | 'finish';
+  eventId?: number; listenerId?: number; message: string; values?: number[];
+}
+export type TriggerCondition = { type: 'always' }
+  | { type: 'missingHpAtLeast' | 'eventValueAtLeast'; value: number }
+  | { type: 'sourceKind'; kind: EntityRef['kind'] }
+  | { type: 'targetKind'; kind: EntityRef['kind'] }
+  | { type: 'all'; conditions: TriggerCondition[] };
+// Non-target terms are frozen at dequeue. Target terms are read on execution.
+export type TriggerAmount = number | { base?: number; missingHp?: number; eventValue?: number; targetHp?: number; multiplier?: number };
+export type TriggerTarget = 'eventTarget' | 'nearest' | 'lowestHp' | 'random';
+export type TriggerEffect = { type: 'heal' | 'draw' | 'loseHp'; amount: TriggerAmount }
+  | { type: 'damage' | 'push'; amount: TriggerAmount; target: TriggerTarget }
+  | { type: 'setListenerActive'; listenerId: number | 'self'; active: boolean }
+  | { type: 'listen'; listener: ListenerDefinition };
+export type TriggerLimit = { scope: 'unlimited' } | { scope: 'turn' | 'battle'; count: number };
+interface ListenerBase {
+  key: string; name: string; listensTo: EventType[]; condition?: TriggerCondition;
+  effects: TriggerEffect[]; limit: TriggerLimit; allowChain: boolean; duration?: 'turn' | 'battle';
+}
+export type ListenerDefinition = ListenerBase & ({ kind: 'relic' }
+  | { kind: 'temporary'; snapshot: 'eventStart' | 'execution' });
+export interface ListenerState {
+  id: number; order: number; definition: ListenerDefinition; active: boolean;
+  registeredTurn: number; totalTriggers: number; turnTriggers: number; lastTriggerTurn: number;
+}
+export type FinishReason = 'player-death' | 'last-contact' | 'last-kill' | 'boss-contact';
 export interface BattleState {
   encounter: number; seed: number; rng: number; turn: number; size: number; handSize: number;
   party: CharacterInstance[];
@@ -48,6 +88,10 @@ export interface BattleState {
   enemies: EnemyState[];
   hand: BattleCardState[]; draw: BattleCardState[]; discard: BattleCardState[];
   exhaust: BattleCardState[]; executing: BattleCardState[];
-  status: 'playing' | 'won' | 'lost'; phase: 'player' | 'enemy';
+  status: 'playing' | 'won' | 'lost'; phase: 'player' | 'enemy' | 'card' | 'events' | 'closing' | 'finished';
+  lastKillPending: boolean; finishReason: FinishReason | null;
+  eventQueue: GameEvent[]; eventHistory: GameEvent[]; eventTrace: EventTrace[];
+  eventContext: EventContext | null; nextEventId: number; processingEvents: boolean;
+  listeners: ListenerState[]; nextListenerId: number; nextListenerOrder: number;
   log: string[]; events: BattleEvent[]; notice: string; scenario: string;
 }

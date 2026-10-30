@@ -9,6 +9,7 @@ import { hand } from './ui/hand';
 import { pileButton, pileBrowser, isPile, type Pile } from './ui/piles';
 import { panels, result } from './ui/panels';
 import { enemyOrder } from './game/turn';
+import { eventInspector } from './ui/eventInspector';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
 const query = new URLSearchParams(location.search);
 const seedValue = Number(query.get('seed') ?? prototype.seed);
@@ -37,6 +38,7 @@ function perform(action:Action) {
 function render() {
  interaction?.cancel();
  app.innerHTML=`<div class="game-shell"><header class="game-header" ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><div class="brand"><span class="brand-emblem">✧</span><div>简单尖塔</div></div><div class="stats">${panels(state)}</div><nav><button data-action="restart" title="重新开始当前战斗">重新开始</button><button data-action="next">切换测试战斗</button></nav></header><main ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><section class="arena"><div class="initiative" aria-label="怪物行动顺序">${enemyOrder(state).map((id,i)=>`<span><b>${i+1}</b> #${id}</span>`).join('<i>›</i>')}</div><div class="scene-motes"><i></i><i></i><i></i><i></i><i></i></div><div class="battlefield-track">${battlefield(state)}</div><div class="combat-feedback" aria-hidden="true">${feedback.map((f,i)=>`<span class="floating-number ${f.tone}" style="left:${(f.position+.5)/state.size*100}%;--delay:${i*.12}s">${f.text}</span>`).join('')}</div><div class="hand-overlay" aria-label="悬浮手牌">${pileButton(state,'draw')}${hand(state)}${pileButton(state,'discard')}${pileButton(state,'exhaust')}<div class="action-bar"><div class="action-buttons"><button class="end-turn" data-action="end" ${state.status!=='playing'?'disabled':''}>结束回合 →</button></div></div></div></section></main>${result(state)}${viewingPile?pileBrowser(state,viewingPile):''}</div>`;
+ if(query.get('debug') === 'events') app.insertAdjacentHTML('beforeend', eventInspector(state));
  if(viewingPile){
   const dialog=app.querySelector<HTMLDialogElement>('.pile-dialog')!;
   dialog.showModal();

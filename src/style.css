@@ -398,3 +398,6 @@ button.deck-pile:hover .deck-card{border-color:#efdaa1;filter:brightness(1.2)}
 @media(max-width:800px){.exhaust-pile{right:52px}.pile-dialog{width:calc(100vw - 24px);height:calc(100svh - 32px)}.pile-header{padding:14px 16px}.pile-header h2{font-size:24px}.pile-tabs{padding:12px 16px;gap:7px}.pile-tabs button{font-size:13px;padding:7px 9px}.pile-note{padding:0 16px 8px;font-size:12px}.pile-contents{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));padding:16px;gap:20px 14px}.pile-card{width:180px;height:310px}.pile-card p{font-size:14px}.pile-card h3{font-size:21px}}
 .deck-pile>.deck-card{font-size:34px;margin:0}
 @media(max-width:800px){.deck-pile>.deck-card{font-size:26px}}
+.event-inspector{position:fixed;left:12px;top:64px;z-index:100;max-width:calc(100vw - 24px);color:#eee;background:#132321f2;border:1px solid #839782;border-radius:6px;font:13px/1.45 monospace}
+.event-inspector summary{padding:8px 12px;cursor:pointer}
+.event-inspector pre{margin:0;padding:12px;width:min(680px,calc(100vw - 48px));max-height:65svh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
