@@ -29,11 +29,11 @@ npm run preview
 ## 验证
 
 ```sh
-npm test             # 22项规则＋8项模型＋30项事件＋31项伤害与批次检查
+npm test             # 22项规则＋8项模型＋30项事件＋31项伤害＋36项同步击退
 npm run test:launcher # 12项启动器检查
 npm run build       # 严格 TypeScript 检查及生产构建
 npx playwright install chromium  # 本机首次浏览器验收时使用
-npm run test:browser # 33项浏览器流程（23项原有＋5项事件＋5项伤害）
+npm run test:browser # 40项浏览器流程（原有23项＋事件5项＋伤害5项＋击退7项）
 ```
 
 云环境已有 `/usr/bin/chromium`，无需下载浏览器：
@@ -51,6 +51,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - [步骤1实施与验收](docs/步骤1_实施与验收.md)
 - [步骤2事件执行规格与验收](docs/步骤2_事件执行规格与验收.md)
 - [步骤3伤害执行规格与验收](docs/步骤3_伤害执行规格与验收.md)
+- [步骤4同步击退执行规格与验收](docs/步骤4_同步击退执行规格与验收.md)
 - [当前规则确认（晴／雨／风）](docs/当前规则确认.md)
 - [V15.7规则与代码对照表](docs/V15.7规则与代码对照表.md)
 - [规则待定清单](docs/规则待定清单.md)
@@ -64,6 +65,8 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - `src/game/model.ts`、`deck.ts`：统一数据类型、永久卡牌实例及战斗引用。
 - `src/game/events.ts`、`eventQueue.ts`、`listeners.ts`：事件入队、FIFO派发、登记顺序、监听生命周期、快照与触发。
 - `src/game/damage.ts`：统一公式、来源／目标修正、同步伤害批次与实际生命损失。
+- `src/game/push.ts`：纯同步位移求解、逐拍整体提交、碰撞排序及位移账本。
+- `src/content/pushScenarios.ts`：七个开发用同步击退局面。
 - `src/content/relics.ts`：开发局面的测试遗物，普通战斗不装配。
 - `src/game/`：独立规则；`src/ui/`：纯展示；`src/main.ts`：输入绑定。
 
@@ -73,4 +76,6 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 
 伤害验收入口：`?scenario=damageFormula`（独立倍率）、`?scenario=damageMulti`（分段取整）、`?scenario=damageWave`（群体同步击杀）、`?scenario=damagePartial`（群体部分击杀）、`?scenario=damageKinds`（来源修正隔离）。添加 `&debug=events` 查看完整公式、伤害类别、实际扣血及批次。预期结果与暂定交叉事件顺序见[步骤3执行规格](docs/步骤3_伤害执行规格与验收.md)。
 
-完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1数据模型、步骤2事件内核及步骤3统一伤害与群体伤害已完成；同步击退、天气、Boss与完整单局仍按实施方案推进。天气已确认采用晴／雨／风及三项适应，覆盖原策划案的旧昼夜设计。
+击退验收入口：`?scenario=pushTogether`（同向累加）、`?scenario=pushSplit`（双侧同步）、`?scenario=pushOpposed`（反向净余）、`?scenario=pushClash`（等量争格）、`?scenario=pushSandwich`（同位置排序）、`?scenario=pushChain`（连续传递）、`?scenario=pushLimits`（双侧边界）。添加 `&debug=events` 查看碰撞类别、发生拍次和守恒账本。反向冲突等可调整执行选择见[步骤4规格](docs/步骤4_同步击退执行规格与验收.md)。
+
+完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1～4的数据模型、事件、伤害和同步击退内核已完成；天气、Boss与完整单局仍按实施方案推进。天气已确认采用晴／雨／风及三项适应，覆盖原策划案的旧昼夜设计。

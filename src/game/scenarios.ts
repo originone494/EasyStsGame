@@ -3,10 +3,13 @@ import { prototype } from '../content/encounters';
 import { createDeck } from './deck';
 import { registerListener } from './listeners';
 import { testRelics } from '../content/relics';
+import { pushFixtures } from '../content/pushScenarios';
+import { enemies } from '../content/enemies';
 export const scenarios = [ { id: 'heal', name: '最后击杀后治疗' }, { id: 'empty', name: '空牌堆与执行区' }, { id: 'lethal', name: '接触致死' }, { id: 'chain', name: '击退传递' },
   { id: 'events', name: '最后击杀遗物连锁' }, { id: 'snapshots', name: '遗物数值快照' }, { id: 'eventLethal', name: '生命代价立即失败' }, { id: 'eventTarget', name: '目标失效保留治疗' },
   { id: 'damageFormula', name: '独立倍率伤害' }, { id: 'damageMulti', name: '每段独立取整' }, { id: 'damageWave', name: '群体同步击杀' },
-  { id: 'damagePartial', name: '群体部分击杀' }, { id: 'damageKinds', name: '伤害来源分类' } ];
+  { id: 'damagePartial', name: '群体部分击杀' }, { id: 'damageKinds', name: '伤害来源分类' },
+  ...Object.entries(pushFixtures).map(([id, fixture]) => ({ id, name: fixture.name })) ];
 export function createScenario(id: string, seed = prototype.seed): State {
   const s = createBattle(0, seed); s.scenario = id; s.log = ['开发局面：固定手牌，仅用于规则验收。'];
   if (id === 'heal') { s.player.hp = 7; s.enemies = [{ ...s.enemies[0], hp: 2 }]; s.hand = [{ id: 0, key: 'debugHeal' }]; s.draw = []; s.discard = []; }
@@ -55,10 +58,20 @@ export function createScenario(id: string, seed = prototype.seed): State {
     s.hand = [{ id: 0, key: 'debugWave' }]; s.draw = []; s.discard = [];
     registerListener(s, testRelics.lastHeal);
   }
+  const pushFixture = pushFixtures[id];
+  if (pushFixture) {
+    s.player.position = pushFixture.player;
+    s.player.hp = pushFixture.hp ?? s.player.maxHp;
+    s.enemies = pushFixture.units.map(unit => ({ ...enemies[unit.kind], ...unit, maxHp: enemies[unit.kind].hp }));
+    s.hand = [{ id: 0, key: pushFixture.card }]; s.draw = []; s.discard = [];
+    if (pushFixture.collisionHeal) registerListener(s, { key: 'test_collision_heal', name: '碰撞治疗（测试）', kind: 'relic',
+      listensTo: ['COLLISION'], effects: [{ type: 'heal', amount: 1 }], limit: { scope: 'unlimited' }, allowChain: false });
+  }
   // Fixtures have deliberate custom decks; keep their permanent registry in sync.
   s.deck = [...s.hand, ...s.draw, ...s.discard, ...s.exhaust, ...s.executing]
     .map(card => createDeck([card.key], card.id)[0]);
   // A fixture starts at its preset state; omit the discarded normal opening.
   s.events = []; s.eventHistory = []; s.eventTrace = []; s.nextEventId = 1; s.nextDamageBatchId = 1;
+  s.pushHistory = []; s.nextPushBatchId = 1;
   return s;
 }

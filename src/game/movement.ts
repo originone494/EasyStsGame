@@ -1,6 +1,8 @@
-import type { State, Enemy } from './state';
+import type { State } from './state';
+import type { PushDirection } from './model';
 import { damagePlayer } from './resolution';
 import { finishBattle, playerRef, recordEvent } from './events';
+import { pushDirection, resolvePushBatch } from './push';
 export function canMove(s: State, direction: number, amount = 1) {
   const end = s.player.position + direction * amount;
   return (direction === -1 || direction === 1) && end >= 0 && end < s.size && !s.enemies.some(e => e.position === end);
@@ -9,17 +11,15 @@ export function movePlayer(s: State, direction: number, amount: number) {
   if (s.status !== 'playing' || !canMove(s, direction, amount)) return;
   s.player.position += direction * amount; recordEvent(s, 'UNIT_MOVED', { target: playerRef, value: direction * amount }, { type: 'move', amount: direction * amount }); s.log.push(`队伍${direction < 0 ? '向左' : '向右'}移动 ${amount} 格。`);
 }
-export function pushEnemy(s: State, id: number, amount: number) {
-  let current = s.enemies.find(e => e.id === id); if (!current || s.status !== 'playing') return;
-  const direction = Math.sign(current.position - s.player.position);
-  let remaining = amount;
-  while (current && remaining > 0) {
-    const next: number = current.position + direction;
-    if (next < 0 || next >= s.size) { s.log.push(`敌人 #${current.id} 到达边界，剩余 ${remaining} 格击退消失。`); break; }
-    const blocker: Enemy | undefined = s.enemies.find(e => e.position === next);
-    if (blocker) { recordEvent(s, 'COLLISION', { actor: { kind: 'enemy', id: current.id }, target: { kind: 'enemy', id: blocker.id }, value: remaining }, { type: 'collision', actor: current.id, target: blocker.id, amount: remaining }); s.log.push(`碰撞：#${current.id} → #${blocker.id}，传递 ${remaining} 格击退（无伤害）。`); current = blocker; }
-    else { current.position = next; remaining--; recordEvent(s, 'UNIT_MOVED', { target: { kind: 'enemy', id: current.id }, value: direction }, { type: 'move', actor: current.id, amount: direction }); s.log.push(`敌人 #${current.id} 被击退至第 ${next} 格。`); }
-  }
+export function pushEnemy(s: State, id: number, amount: number, direction: PushDirection = 'away') {
+  return pushEnemies(s, [id], amount, direction);
+}
+export function pushEnemies(s: State, ids: readonly number[], amount: number, direction: PushDirection = 'away') {
+  if (s.status !== 'playing') return;
+  const selected = new Set(ids);
+  const targets = s.enemies.filter(unit => selected.has(unit.id));
+  return resolvePushBatch(s, targets.map(unit => ({ id: unit.id, amount,
+    direction: pushDirection(unit.position, s.player.position, direction) })));
 }
 export function advanceEnemy(s: State, id: number) {
   const enemy = s.enemies.find(e => e.id === id); if (!enemy || s.status !== 'playing') return;

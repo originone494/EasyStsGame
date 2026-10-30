@@ -6,6 +6,7 @@ import { drawCards } from './cards';
 import { pushEnemy } from './movement';
 import { nextRandom } from './random';
 import { inferDamageKind, resolveDamageBatch } from './damage';
+import { pushDirection, resolvePushBatch } from './push';
 
 function selectTarget(s: BattleState, event: GameEvent, target: TriggerTarget): EnemyState | undefined {
   if (target === 'eventTarget') return event.target?.kind === 'enemy' ? s.enemies.find(enemy => enemy.id === event.target!.id) : undefined;
@@ -31,6 +32,16 @@ function executeEffects(s: BattleState, event: GameEvent, listenerId: number, ef
       setListenerActive(s, effect.listenerId === 'self' ? listenerId : effect.listenerId, effect.active);
       continue;
     }
+    if (effect.type === 'pushGroup') {
+      resolvePushBatch(s, effect.pushes);
+      continue;
+    }
+    if (effect.type === 'pushAll') {
+      resolvePushBatch(s, s.enemies.map(enemy => ({ id: enemy.id,
+        amount: Math.max(0, Math.ceil((frozen.base! + frozen.targetHp! * enemy.hp) * frozen.multiplier!)),
+        direction: pushDirection(enemy.position, s.player.position, effect.direction) })));
+      continue;
+    }
     if (effect.type === 'damageAll') {
       // Build all target-dependent bases against the same pre-batch state.
       resolveDamageBatch(s, s.enemies.map(enemy => ({ target: { kind: 'enemy', id: enemy.id },
@@ -53,7 +64,7 @@ function executeEffects(s: BattleState, event: GameEvent, listenerId: number, ef
     }
     const amount = Math.max(0, Math.ceil(base * frozen.multiplier!));
     switch (effect.type) {
-      case 'push': pushEnemy(s, target!.id, amount); break;
+      case 'push': pushEnemy(s, target!.id, amount, effect.direction); break;
       case 'heal': healPlayer(s, amount); break;
       case 'draw': drawCards(s, amount); break;
       case 'loseHp': losePlayerHp(s, amount); break;

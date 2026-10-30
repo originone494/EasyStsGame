@@ -4,7 +4,8 @@ import { shuffle } from './random';
 import { damageEnemy, damageEnemies, healPlayer, losePlayerHp } from './resolution';
 import { recordEvent } from './events';
 import { registerListener } from './listeners';
-import { movePlayer, pushEnemy } from './movement';
+import { movePlayer, pushEnemy, pushEnemies } from './movement';
+import { resolvePushBatch } from './push';
 export function drawCards(s: State, amount: number) {
   for (let i = 0; i < amount; i++) {
     if (s.status !== 'playing') break;
@@ -28,7 +29,9 @@ export function executeCard(s: State, card: Card, target?: number, direction?: n
       } break;
       case 'draw': drawCards(s, effect.amount); break;
       case 'move': movePlayer(s, direction!, effect.amount); break;
-      case 'push': pushEnemy(s, target!, effect.amount); break;
+      case 'push': pushEnemy(s, target!, effect.amount, effect.direction); break;
+      case 'pushAll': pushEnemies(s, s.enemies.map(enemy => enemy.id), effect.amount, effect.direction); break;
+      case 'pushGroup': resolvePushBatch(s, effect.pushes); break;
       case 'heal': healPlayer(s, effect.amount); break;
       case 'loseHp': losePlayerHp(s, effect.amount); break;
       case 'listen': registerListener(s, effect.listener); break;

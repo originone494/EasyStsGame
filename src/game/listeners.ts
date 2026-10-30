@@ -41,6 +41,7 @@ function matches(s: BattleState, event: GameEvent, condition?: TriggerCondition)
     case 'targetKind': return event.target?.kind === condition.kind;
     case 'damageKind': return event.damage?.kind === condition.kind;
     case 'hpLossCause': return event.hpLossCause === condition.cause;
+    case 'collisionMode': return event.type === 'COLLISION' && event.push?.mode === condition.mode;
     case 'all': return condition.conditions.every(part => matches(s, event, part));
   }
 }
@@ -67,7 +68,7 @@ export function freezeAmount(s: BattleState, event: GameEvent, amount: TriggerAm
   };
 }
 export function freezeEffects(s: BattleState, event: GameEvent, definition: ListenerDefinition): FrozenEffect[] {
-  return definition.effects.map(effect => effect.type === 'setListenerActive' || effect.type === 'listen'
+  return definition.effects.map(effect => effect.type === 'setListenerActive' || effect.type === 'listen' || effect.type === 'pushGroup'
     ? { effect: structuredClone(effect) }
     : { effect: structuredClone(effect), ...freezeAmount(s, event, effect.amount) });
 }

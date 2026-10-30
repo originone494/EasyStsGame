@@ -12,9 +12,22 @@ export interface DamageResult {
   baseTerms: DamageTerm[];
   resolved: number; hpLost: number; hpBefore: number; hpAfter: number;
 }
+export type PushDirection = 'away' | 'toward' | 'left' | 'right';
+export type PushCollisionMode = 'transfer' | 'opposed' | 'converge';
+export interface PushRequest { id: number; amount: number; direction: -1 | 1 }
+export interface PushEventDetail {
+  batchId: number; tick: number; position: number; mode: PushCollisionMode | 'move';
+  direction?: -1 | 1; from?: number; to?: number; leftAmount?: number; rightAmount?: number; canceled?: number;
+}
+export interface PushAccounting { initial: number; moved: number; canceled: number; boundaryLost: number; playerBlocked: number; remaining: number }
+export interface PushBatchResult extends PushAccounting {
+  batchId: number; ticks: number; requests: PushRequest[]; units: { id: number; from: number; to: number }[];
+}
 export type Effect =
   | ({ type: 'damage' | 'damageAll'; amount: number; hits?: number } & DamageModifiers)
-  | { type: 'draw' | 'heal' | 'push' | 'move' | 'loseHp'; amount: number }
+  | { type: 'draw' | 'heal' | 'move' | 'loseHp'; amount: number }
+  | { type: 'push' | 'pushAll'; amount: number; direction?: PushDirection }
+  | { type: 'pushGroup'; pushes: PushRequest[] }
   | { type: 'listen'; listener: ListenerDefinition };
 
 export interface CardDefinition {
@@ -64,6 +77,7 @@ export interface EventContext { source: EntityRef; parentId: number | null; allo
 export interface GameEvent extends EventContext {
   id: number; sequence: number; type: EventType; target: EntityRef | null; value: number; actor: EntityRef | null;
   batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct';
+  push?: PushEventDetail;
 }
 export interface EventTrace {
   kind: 'enqueue' | 'dequeue' | 'snapshot' | 'trigger' | 'skip' | 'cancel' | 'finish';
@@ -75,6 +89,7 @@ export type TriggerCondition = { type: 'always' }
   | { type: 'targetKind'; kind: EntityRef['kind'] }
   | { type: 'damageKind'; kind: DamageKind }
   | { type: 'hpLossCause'; cause: 'damage' | 'direct' }
+  | { type: 'collisionMode'; mode: PushCollisionMode }
   | { type: 'all'; conditions: TriggerCondition[] };
 // Non-target terms are frozen at dequeue. Target terms are read on execution.
 export type TriggerAmount = number | { base?: number; missingHp?: number; eventValue?: number; targetHp?: number; multiplier?: number };
@@ -82,7 +97,9 @@ export type TriggerTarget = 'eventTarget' | 'nearest' | 'lowestHp' | 'random';
 export type TriggerEffect = { type: 'heal' | 'draw' | 'loseHp'; amount: TriggerAmount }
   | ({ type: 'damage'; amount: TriggerAmount; target: TriggerTarget } & DamageModifiers)
   | ({ type: 'damageAll'; amount: TriggerAmount } & DamageModifiers)
-  | { type: 'push'; amount: TriggerAmount; target: TriggerTarget }
+  | { type: 'push'; amount: TriggerAmount; target: TriggerTarget; direction?: PushDirection }
+  | { type: 'pushAll'; amount: TriggerAmount; direction?: PushDirection }
+  | { type: 'pushGroup'; pushes: PushRequest[] }
   | { type: 'setListenerActive'; listenerId: number | 'self'; active: boolean }
   | { type: 'listen'; listener: ListenerDefinition };
 export type TriggerLimit = { scope: 'unlimited' } | { scope: 'turn' | 'battle'; count: number };
@@ -110,6 +127,7 @@ export interface BattleState {
   eventQueue: GameEvent[]; eventHistory: GameEvent[]; eventTrace: EventTrace[];
   eventContext: EventContext | null; nextEventId: number; processingEvents: boolean;
   damageModifiers: DamageModifier[]; nextDamageBatchId: number;
+  pushHistory: PushBatchResult[]; nextPushBatchId: number;
   listeners: ListenerState[]; nextListenerId: number; nextListenerOrder: number;
   log: string[]; events: BattleEvent[]; notice: string; scenario: string;
 }
