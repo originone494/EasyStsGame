@@ -2,6 +2,7 @@
 // or explicit tests; these definitions never enter the normal game's pools.
 import { cards } from './cards';
 import { characters } from './characters';
+import { approvedProgressionTestRules } from './progression';
 import type { CardDefinition, CharacterDefinition, RelicDefinition, Rarity } from '../game/model';
 import type { ProgressionContent } from '../game/selection';
 
@@ -41,9 +42,8 @@ for (const [rarity, count] of [['common', 2], ['uncommon', 2], ['rare', 1]] as c
 
 export const developmentProgression: ProgressionContent = {
   id: 'selection-fixture-v1', initialCharacter: 'selectionFixture0', cards: fixtureCards, characters: fixtureCharacters, relics: fixtureRelics,
-  // Test inputs only. Live weights/shortage rules remain pending user decisions.
-  rules: { cardWeights: { common: 1, uncommon: 1, rare: 1 }, characterWeights: {},
-    relicFallbackWeights: { common: 1, uncommon: 1, rare: 1 }, recruitmentShortage: 'exclude' },
+  // Weights are approved test values. Shortage handling remains fixture-only.
+  rules: { ...structuredClone(approvedProgressionTestRules), recruitmentShortage: 'exclude' },
 };
 
 export function installDevelopmentRewards() {
