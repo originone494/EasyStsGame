@@ -29,7 +29,8 @@ npm run preview
 ## 验证
 
 ```sh
-npm test             # 22 项规则验收
+npm test             # 原有22项规则验收＋8项数据模型检查
+npm run test:launcher # 12项启动器检查
 npm run build       # 严格 TypeScript 检查及生产构建
 npx playwright install chromium  # 本机首次浏览器验收时使用
 npm run test:browser # 23 项真实浏览器流程测试
@@ -46,14 +47,20 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 ## 文档与配置入口
 
 - [五阶段开发计划](docs/开发计划.md)
+- [V15.7 后续开发实施方案（上传原文）](docs/简单尖塔_V15.7_后续开发实施方案.md)
+- [步骤1实施与验收](docs/步骤1_实施与验收.md)
+- [V15.7规则与代码对照表](docs/V15.7规则与代码对照表.md)
+- [规则待定清单](docs/规则待定清单.md)
 - [第一阶段规则、临时配置、默认规则](docs/第一阶段规则.md)
 - [验收结果](docs/验收结果.md)
 - [界面与美术方向](docs/界面与美术方向.md)
 - `src/content/cards.ts`：卡牌效果及七张初始牌组。
 - `src/content/enemies.ts`：敌人生命、速度、接触伤害。
 - `src/content/encounters.ts`：三个布局、共享生命、战场大小与默认种子。
+- `src/content/characters.ts`：临时角色及其两张初始牌。
+- `src/game/model.ts`、`deck.ts`：统一数据类型、永久卡牌实例及战斗引用。
 - `src/game/`：独立规则；`src/ui/`：纯展示；`src/main.ts`：输入绑定。
 
 开发用固定局面通过地址参数访问，不在游戏里显示调试文字：`?scenario=heal`（收尾治疗）、`?scenario=empty`（空牌堆）、`?scenario=lethal`（接触致死）、`?scenario=chain`（击退传递）；`?seed=0&encounter=2` 可指定种子与布局。最后击杀治疗专用测试卡不会加入正常牌组。动画、遗物触发队列和昼夜将在后续阶段接入。
 
-完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型依据第一阶段实施要求开发，尚未逐条完成与完整策划案的差异核对。
+完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1已完成数据模型整理；后续事件队列、遗物、天气、Boss与完整单局仍按实施方案推进。

@@ -1,0 +1,13 @@
+{
+  "baselineCommit": "43a182f",
+  "files": {
+    "tests/battle.test.ts": "b4bc0b0f56fc9106b20236e5c1b8888fb574d9a280344e861ac8da3dc32b4eb0",
+    "tests/browser/play.spec.ts": "8e8e1c5d4e9d490ebfeeb6c18aec62d0c77395c3dd6bf87a371f3cf2855dff11",
+    "tests/launcher/launcher.test.cjs": "8f185b00189b351664de66abc710ad1aa34e75b32cb780f44976df08ad26d4b1"
+  },
+  "counts": {
+    "rules": 22,
+    "browser": 23,
+    "launcher": 12
+  }
+}

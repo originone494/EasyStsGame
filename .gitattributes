@@ -2,3 +2,4 @@
 *.cmd -text whitespace=cr-at-eol
 # Preserve the uploaded design document exactly; Markdown uses intentional hard breaks.
 docs/游戏策划案_最终整合版_V15.7.md -text -whitespace
+docs/简单尖塔_V15.7_后续开发实施方案.md -text -whitespace

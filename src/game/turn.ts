@@ -8,5 +8,5 @@ export function finishTurn(s: State) {
   const order = enemyOrder(s); s.log.push(`怪物行动顺序：${order.map(id => '#' + id).join(' → ')}。`);
   for (const id of order) { if (s.status !== 'playing') break; advanceEnemy(s, id); }
   settle(s); if (s.status !== 'playing') return;
-  s.phase = 'player'; s.turn++; s.log.push(`回合 ${s.turn} 开始，补牌至 3 张。`); drawCards(s, Math.max(0, 3 - s.hand.length));
+  s.phase = 'player'; s.turn++; s.log.push(`回合 ${s.turn} 开始，补牌至 ${s.handSize} 张。`); drawCards(s, Math.max(0, s.handSize - s.hand.length));
 }
