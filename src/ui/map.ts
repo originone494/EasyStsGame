@@ -24,7 +24,7 @@ function overview(run: RunState) {
 function header(run: RunState, title?: string) {
   const back = title === undefined && run.runStatus !== 'map'
     ? `<button data-action="run-return">${run.runStatus==='battle'?'返回战斗':run.runStatus==='safe'?'返回当前节点':'返回结算'}</button>` : '';
-  return `<header class="run-header"><div><span class="run-kicker">简单尖塔</span>${title?`<h1>${title}</h1>`:''}</div><nav>${back}<button data-action="new-run">重新开局</button><button data-action="exit-run">返回试战</button></nav></header>${overview(run)}`;
+  return `<header class="run-header"><div class="run-heading"><span class="run-kicker">简单尖塔</span>${title?`<h1>${title}</h1>`:''}</div>${overview(run)}<nav>${back}<button data-action="new-run">重新开局</button><button data-action="exit-run">返回试战</button></nav></header>`;
 }
 
 export function runMap(run: RunState): string {
