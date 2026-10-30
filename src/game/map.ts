@@ -31,6 +31,7 @@ export function generateMap(seed: number, config: MapGenerationConfig): MapNode[
     const nonBoss = floorBattleCounts[floor - 1] - 1;
     const selected = shuffle(Array.from({ length: nonBoss }, (_, i) => i), random()); rng = selected.seed;
     const elites = new Set(selected.values.slice(0, config.elitesPerFloor));
+    // This is a stable catalogue order, not a required traversal route.
     // Build the battle skeleton before inserting any safe node.
     const battles: BattleMapNode[] = Array.from({ length: nonBoss }, (_, index) => {
       const encounter = choose(0, encounters.length - 1);

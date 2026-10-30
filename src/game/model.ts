@@ -189,6 +189,8 @@ export interface MapGenerationConfig {
 }
 export interface RunRewardRecord { nodeId: string; outcome: RewardOutcome }
 export interface RunState {
+  // currentNodeIndex identifies the active node (or a fallback on the map),
+  // not a traversal prerequisite. Any unfinished node on currentFloor is legal.
   runId: string; seed: number; scenario: string; currentFloor: number; currentNodeIndex: number;
   party: CharacterInstance[]; currentHP: number; maxHP: number; deck: CardInstance[];
   relics: ListenerDefinition[]; gold: number; attributes: AdaptationAttributes;

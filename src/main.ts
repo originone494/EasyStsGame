@@ -14,7 +14,7 @@ import { eventInspector } from './ui/eventInspector';
 import { weatherLabels } from './content/weather';
 import { continueBattle } from './game/progression';
 import type { RunState } from './game/model';
-import { acknowledgeRunReward, actInRun, createRun, currentNode, enterRunNode, leaveSafeNode } from './game/run';
+import { acknowledgeRunReward, actInRun, canEnterRunNode, createRun, currentNode, enterRunNode, leaveSafeNode } from './game/run';
 import { runInspector, runMap, safeNodeScreen } from './ui/map';
 import { createRunScenario } from './game/runScenarios';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
@@ -80,7 +80,6 @@ function render() {
   const screen=app.querySelector('.run-screen');if(screen)screen.scrollTop=scroll;
   const route=app.querySelector<HTMLElement>('.map-scroll');
   if(route&&routeFloor===route.dataset.mapFloorView&&routeScroll!==undefined)route.scrollTop=routeScroll;
-  else if(route)focusMapNode();
   return;
  }
  if(run?.battle)state=run.battle;
@@ -91,13 +90,6 @@ function render() {
   dialog.showModal();
   dialog.querySelector<HTMLButtonElement>(`[data-view-pile="${viewingPile}"]`)?.focus();
  }
-}
-function focusMapNode() {
- const route=app.querySelector<HTMLElement>('.map-scroll');
- const node=app.querySelector<HTMLElement>('.map-node.selected');
- if(!route||!node)return;
- const container=route.getBoundingClientRect(), target=node.getBoundingClientRect();
- route.scrollTop+=target.top-container.top-(route.clientHeight-target.height)/2;
 }
 interaction = new CardInteraction(app, {
  state: () => state,
@@ -123,7 +115,7 @@ app.addEventListener('click',event=>{
  case 'exit-run':run=null;query.delete('mode');showingMap=false;newRun();return;
  case 'run-map':if(run){showingMap=true;viewingPile=undefined;render();}return;
  case 'run-return':if(run){showingMap=false;render();}return;
- case 'run-enter':if(run?.runStatus==='map'&&button.dataset.nodeId===currentNode(run).id){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
+ case 'run-enter':if(run&&button.dataset.nodeId&&canEnterRunNode(run,button.dataset.nodeId)){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
  case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;render();}return;
  case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;feedback=[];render();}return;
  case 'close-pile':closePile();return;

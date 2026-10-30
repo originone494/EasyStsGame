@@ -11,6 +11,7 @@ import { runMap, safeNodeScreen } from '../src/ui/map';
 import { result } from '../src/ui/panels';
 import { continueBattle } from '../src/game/progression';
 import { nextRandom } from '../src/game/random';
+import { scatterMapNodes } from '../src/ui/mapLayout';
 
 function win(input: RunState): RunState {
   let run = input.runStatus === 'map' ? enterRunNode(input, currentNode(input).id) : input;
@@ -21,6 +22,33 @@ function win(input: RunState): RunState {
 }
 
 describe('步骤8：固定战斗骨架与随机安全节点', () => {
+  it('100个种子的三层散点均不重叠、Boss最高、火堆在旁，同种子位置稳定', () => {
+    let seed = 0;
+    for (let sample = 0; sample < 100; sample++, seed = nextRandom(seed)) {
+      const map = generateMap(seed, mapRules);
+      for (const floor of [1, 2, 3]) for (const columns of [2, 3, 4] as const) {
+        const nodes = map.filter(node => node.floor === floor), before = structuredClone(nodes);
+        const layout = scatterMapNodes(nodes, seed, columns);
+        expect(nodes).toEqual(before); expect(layout.points).toHaveLength(nodes.length);
+        const width = { 2: 280, 3: 500, 4: 720 }[columns];
+        const points = layout.points.map((point, index) => ({ x: 56 + point.x * (width - 112),
+          y: nodes[index].kind === 'boss' ? 70 : 180 + point.y * (layout.minHeight - 245) }));
+        const boss = points[nodes.findIndex(node => node.kind === 'boss')];
+        const camp = points[nodes.findIndex(node => 'beforeBoss' in node && node.beforeBoss)];
+        expect(camp.y - boss.y).toBeGreaterThan(100); expect(camp.y - boss.y).toBeLessThan(160);
+        expect(Math.abs(camp.x - boss.x)).toBeLessThan(width * .2);
+        for (let i = 0; i < points.length; i++) {
+          if (nodes[i].kind !== 'boss') expect(points[i].y).toBeGreaterThan(boss.y);
+          expect(points[i].x).toBeGreaterThanOrEqual(56); expect(points[i].x).toBeLessThanOrEqual(width - 56);
+          for (let j = i + 1; j < points.length; j++) {
+            expect(Math.abs(points[i].x - points[j].x) >= 96 || Math.abs(points[i].y - points[j].y) >= 108).toBe(true);
+          }
+        }
+        if (sample === 0) expect(scatterMapNodes(nodes, seed, columns)).toEqual(layout);
+      }
+    }
+  });
+
   it('每层10／7／5战、另有5随机安全节点和1固定火堆，全局40节点22战', () => {
     const nodes = generateMap(157, mapRules);
     expect(nodes).toHaveLength(40); expect(nodes.filter(isBattleNode)).toHaveLength(22);
@@ -100,12 +128,56 @@ describe('步骤8：单局资产、合法推进与终点', () => {
     expect(run.deck).toHaveLength(7); expect(run.party).toEqual([{ id: 0, key: 'wanderer' }]);
   });
 
-  it('未来节点、旧节点、重复进入、战斗中跳安全节点都被拒绝且不改输入', () => {
+  it('同层可自由选点，跨层、未知节点、重复进入和战斗中跳转被拒绝且不改输入', () => {
     const run = createRun(157), before = structuredClone(run), id = currentNode(run).id;
-    expect(() => enterRunNode(run, run.mapNodes[1].id)).toThrow('当前'); expect(run).toEqual(before);
+    expect(enterRunNode(run, 'f1-b9').battle!.runContext!.nodeId).toBe('f1-b9');
+    expect(() => enterRunNode(run, 'f2-b1')).toThrow('当前');
+    expect(() => enterRunNode(run, 'missing')).toThrow('当前'); expect(run).toEqual(before);
     const battle = enterRunNode(run, id); expect(() => enterRunNode(battle, id)).toThrow('当前');
     expect(() => leaveSafeNode(battle, id)).toThrow('当前'); expect(() => acknowledgeRunReward(battle, id)).toThrow('当前');
     const done = acknowledgeRunReward(win(battle), id); expect(() => enterRunNode(done, id)).toThrow('当前');
+  });
+
+  it('乱序访问安全节点与战斗后仍可选择较早节点，每个节点只能完成一次', () => {
+    let run = createRun(157);
+    const camp = run.mapNodes.find(node => node.floor === 1 && node.kind === 'campfire')!;
+    const safe = enterRunNode(run, camp.id);
+    expect(currentNode(safe).id).toBe(camp.id); expect(safe.runStatus).toBe('safe');
+    expect(() => enterRunNode(safe, 'f1-b1')).toThrow('当前');
+    run = leaveSafeNode(safe, camp.id);
+    expect(run.currentFloor).toBe(1); expect(run.completedNodes).toEqual([camp.id]);
+    run = enterRunNode(run, 'f1-b9'); run = win(run);
+    expect(() => enterRunNode(run, 'f1-b1')).toThrow('当前');
+    expect(() => acknowledgeRunReward(run, 'f1-b1')).toThrow('当前');
+    run = acknowledgeRunReward(run, 'f1-b9');
+    expect(run.completedNodes).toEqual([camp.id, 'f1-b9']); expect(run.rewardHistory).toHaveLength(1);
+    expect(enterRunNode(run, 'f1-b1').battle!.runContext!.nodeId).toBe('f1-b1');
+    expect(() => enterRunNode(run, camp.id)).toThrow('当前');
+    expect(() => enterRunNode(run, 'f1-b9')).toThrow('当前');
+  });
+
+  it('可直接挑战三层Boss，跳过节点不完成不发奖，胜利才升层且不能返回旧层', () => {
+    let run = createRun(157);
+    for (const floor of [1, 2, 3]) {
+      const before = structuredClone(run), id = `f${floor}-boss`;
+      run = enterRunNode(run, id);
+      expect(run.currentFloor).toBe(floor); expect(currentNode(run).id).toBe(id);
+      expect(run.battle!.boss).toBeDefined(); expect(before.completedNodes).toHaveLength(floor - 1);
+      run = win(run);
+      if (floor < 3) {
+        expect(run.runStatus).toBe('reward'); expect(run.currentFloor).toBe(floor);
+        run = acknowledgeRunReward(run, id);
+        expect(run.currentFloor).toBe(floor + 1); expect(run.runStatus).toBe('map');
+        expect(() => enterRunNode(run, `f${floor}-b1`)).toThrow('当前');
+      } else {
+        expect(run.runStatus).toBe('won'); expect(run.gold).toBe(before.gold);
+        expect(run.attributes).toEqual(before.attributes);
+      }
+    }
+    expect(run.completedNodes).toEqual(['f1-boss', 'f2-boss', 'f3-boss']);
+    expect(run.rewardHistory.map(reward => reward.nodeId)).toEqual(['f1-boss', 'f2-boss']);
+    expect(run.rewardHistory.reduce((sum, reward) => sum + reward.outcome.gold, 0)).toBe(run.gold);
+    expect(() => enterRunNode(run, 'f3-b1')).toThrow('当前');
   });
 
   it('进入战斗携带资产和队伍，保留升级标记，初始化阶段即关联当前节点', () => {
@@ -163,12 +235,7 @@ describe('步骤8：单局资产、合法推进与终点', () => {
   });
 
   it('Boss未达标结束本局，不能进入第二层', () => {
-    let run = createRunScenario(157);
-    while (currentNode(run).kind !== 'boss') {
-      const id = currentNode(run).id;
-      run = isBattleNode(currentNode(run)) ? acknowledgeRunReward(win(run), id) : leaveSafeNode(enterRunNode(run, id), id);
-    }
-    run = enterRunNode(run, currentNode(run).id);
+    let run = enterRunNode(createRunScenario(157), 'f1-boss');
     for (let i = 0; run.runStatus === 'battle' && i < 10; i++) run = actInRun(run, { type: 'endTurn' });
     expect(run.runStatus).toBe('lost'); expect(run.currentFloor).toBe(1); expect(run.pendingReward).toBeNull();
     expect(run.completedNodes).not.toContain('f1-boss');

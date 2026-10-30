@@ -1,9 +1,11 @@
 import type { MapNode, RunState } from '../game/model';
-import { currentNode } from '../game/run';
+import { canEnterRunNode, currentNode } from '../game/run';
 import { isBattleNode } from '../game/map';
 import { weatherLabels } from '../content/weather';
 import { characters } from '../content/characters';
 import { mapIcon, mapLandscape } from './mapArt';
+import { shuffle } from '../game/random';
+import { mapPositionStyle, scatterMapNodes } from './mapLayout';
 
 export const nodeLabels = { battle: '普通战', elite: '精英战', boss: 'Boss', shop: '商店', campfire: '火堆', event: '？' };
 const nodeIcons = { battle: '⚔', elite: '◆', boss: '♛', shop: '◇', campfire: '♨', event: '？' };
@@ -28,21 +30,23 @@ function header(run: RunState, title?: string) {
 }
 
 export function runMap(run: RunState): string {
-  const floor = run.currentFloor, current = currentNode(run), nodes = run.mapNodes.filter(node => node.floor === floor);
-  const step = 108, height = (nodes.length - 1) * step + 240;
-  const offsets = [45, 63, 37, 56, 29, 48, 67, 41, 60, 34];
-  const points = nodes.map((node, index) => ({ x: node.kind === 'boss' ? 50 : offsets[(index + floor - 1) % offsets.length], y: height - 120 - index * step }));
-  const paths = nodes.slice(0, -1).map((node, index) => {
-    const a = points[index], b = points[index + 1];
-    const complete = run.completedNodes.includes(node.id);
-    return `<path class="map-link ${complete?'traveled':''}" d="M${a.x*6} ${a.y} C${a.x*6} ${a.y-52} ${b.x*6} ${b.y+52} ${b.x*6} ${b.y}"/>`;
-  }).join('');
-  return `<section class="run-screen map-screen" aria-label="线性地图">${header(run)}<div class="map-layout"><div class="map-scroll" data-map-floor-view="${floor}" tabindex="0" aria-label="可滚动路线图"><div class="map-parchment" style="height:${height}px">${mapLandscape()}<div class="map-destination">${floor===3?'最后的守望':'林冠之上'}<span>第${floor}层 · Boss挑战</span></div><svg class="map-connections" viewBox="0 0 600 ${height}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg><ol class="map-route" aria-label="第${floor}层路线">${nodes.map((node, index) => {
-    const complete = run.completedNodes.includes(node.id), active = node.id === current.id;
+  const floor = run.currentFloor, nodes = run.mapNodes.filter(node => node.floor === floor);
+  // A separate, deterministic layout seed never consumes battle/weather RNG.
+  // Keep the extra camp near the Boss; all other nodes are scattered
+  // with even spacing and no route or visible rows.
+  const ordinary = shuffle(nodes.filter(node => node.kind !== 'boss' && !('beforeBoss' in node && node.beforeBoss)),
+    (run.seed ^ Math.imul(floor, 0x6d6170)) >>> 0).values;
+  const placed = [...nodes.filter(node => node.kind === 'boss' || ('beforeBoss' in node && node.beforeBoss)), ...ordinary];
+  const layoutSeed = (run.seed ^ Math.imul(floor, 0x6d6170)) >>> 0;
+  const wide = scatterMapNodes(placed, layoutSeed, 4), medium = scatterMapNodes(placed, layoutSeed, 3), narrow = scatterMapNodes(placed, layoutSeed, 2);
+  return `<section class="run-screen map-screen" aria-label="自由探索地图">${header(run)}<div class="map-layout"><div class="map-scroll" data-map-floor-view="${floor}" tabindex="0" aria-label="楼层地图"><div class="map-parchment">${mapLandscape()}<ul class="map-field" style="--map-height:${wide.minHeight}px;--map-height-medium:${medium.minHeight}px;--map-height-narrow:${narrow.minHeight}px" aria-label="第${floor}层节点">${placed.map((node, index) => {
+    const complete = run.completedNodes.includes(node.id), active = run.runStatus !== 'map' && node.id === currentNode(run).id;
+    const available = canEnterRunNode(run, node.id);
     const attribute = isBattleNode(node) && node.kind !== 'boss' ? Object.values(weatherLabels).filter(label => node.rewardConfig.baseAttributes[label.attribute] > 0)
       .map(label => `${label.name}+${node.rewardConfig.baseAttributes[label.attribute]}`).join(' ') : '';
-    return `<li class="map-stop ${complete?'complete':active?'current':'future'} kind-${node.kind}" style="left:${points[index].x}%;top:${points[index].y}px"><button class="map-node ${active?'selected':''}" data-map-node="${node.id}" ${active?'aria-current="step"':''} ${active&&!complete&&run.runStatus==='map'?`data-action="run-enter" data-node-id="${node.id}"`:'aria-disabled="true"'} aria-label="${isBattleNode(node)?`第${node.battleIndex}战 `:''}${nodeLabels[node.kind]} ${complete?'已完成':active?'当前节点':'未到达'}" title="${nodeLabels[node.kind]} · ${rewardText(node)}">${mapIcon(node.kind)}${complete?'<span class="node-complete" aria-hidden="true">✓</span>':''}</button><span class="node-caption" aria-hidden="true">${nodeLabels[node.kind]}${attribute?`<small>${attribute}</small>`:''}</span>${active?'<span class="map-current-marker" aria-hidden="true">当前位置</span>':''}</li>`;
-  }).join('')}</ol><div class="map-origin">${mapIcon('campfire')}<span>旅程由此开始</span></div></div></div></div></section>`;
+    const nearBoss = 'beforeBoss' in node && node.beforeBoss;
+    return `<li class="map-stop ${complete?'complete':active?'current':'available'} kind-${node.kind}${nearBoss?' before-boss':''}" style="${mapPositionStyle(wide,index,node.kind==='boss')};${mapPositionStyle(medium,index,node.kind==='boss','-medium')};${mapPositionStyle(narrow,index,node.kind==='boss','-narrow')}"><button class="map-node" data-map-node="${node.id}" ${active?'aria-current="location"':''} ${available?`data-action="run-enter" data-node-id="${node.id}"`:'aria-disabled="true"'} aria-label="${nodeLabels[node.kind]} ${complete?'已完成':active?'当前节点':available?'可进入':'暂不可进入'}" title="${nodeLabels[node.kind]} · ${rewardText(node)}">${mapIcon(node.kind)}${complete?'<span class="node-complete" aria-hidden="true">✓</span>':''}</button><span class="node-caption" aria-hidden="true">${nodeLabels[node.kind]}${attribute?`<small>${attribute}</small>`:''}</span></li>`;
+  }).join('')}</ul></div></div></div></section>`;
 }
 
 export function safeNodeScreen(run: RunState): string {

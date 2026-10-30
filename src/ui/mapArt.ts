@@ -1,6 +1,6 @@
 import type { MapNodeKind } from '../game/model';
 
-// Original ink symbols, shared by route nodes, the detail panel and legend.
+// Original ink symbols for freely selectable map nodes.
 export function mapIcon(kind: MapNodeKind): string {
   const paths: Record<MapNodeKind, string> = {
     battle: '<path d="m17 11 7 2 20 29-5 4-22-27zM11 17l10-6M33 37l12 9M33 47l12-10M47 11l-7 2-20 29 5 4 22-27zM53 17l-10-6M31 37l-12 9M31 47l-12-10"/>',
@@ -14,6 +14,6 @@ export function mapIcon(kind: MapNodeKind): string {
 }
 
 export function mapLandscape(): string {
-  const drawing = `<svg class="map-landscape" viewBox="0 0 600 700" preserveAspectRatio="xMidYMin meet" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><g opacity=".38"><path d="m15 180 65-105 51 80 42-60 76 105M36 174l45-73 30 48M80 75l-7 40 13-10 9 21M430 146l48-91 42 61 32-30 39 77M478 55l-5 39 13-10 10 15"/><path d="M25 230q52-18 102 0m-102 7q40-12 90 0M459 190q66-20 120-2m-108 10q48-12 96-2"/><g stroke-width="1.8"><path d="M42 348v90m0-87-24 39h48zm0 22-30 45h60M84 396v76m0-73-21 32h42zm0 17-26 37h52M544 330v92m0-88-25 39h50zm0 21-30 47h60M504 418v64m0-63-18 28h36zm0 15-23 32h46M68 567v66m0-63-19 30h38zm0 18-25 32h50M539 579v74m0-71-21 34h42zm0 19-28 38h56"/></g><path d="M175 558q35-46 16-90t16-91q35-50 16-94m-36 279q30-49 13-92t16-92q32-48 18-94" stroke-dasharray="3 6"/></g><g transform="translate(530 620)" opacity=".65"><circle r="26"/><circle r="19" stroke-dasharray="2 4"/><path d="M0-35V35m-35-35h70M0-24l7 24-7 24-7-24z"/><path d="M-17-17 17 17m0-34-34 34"/><path d="m0-24 7 24H0z" fill="currentColor"/></g></svg>`;
+  const drawing = `<svg class="map-landscape" viewBox="0 0 600 700" preserveAspectRatio="xMidYMin meet" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><g opacity=".38"><path d="m15 180 65-105 51 80 42-60 76 105M36 174l45-73 30 48M80 75l-7 40 13-10 9 21M430 146l48-91 42 61 32-30 39 77M478 55l-5 39 13-10 10 15"/><path d="M25 230q52-18 102 0m-102 7q40-12 90 0M459 190q66-20 120-2m-108 10q48-12 96-2"/><g stroke-width="1.8"><path d="M42 348v90m0-87-24 39h48zm0 22-30 45h60M84 396v76m0-73-21 32h42zm0 17-26 37h52M544 330v92m0-88-25 39h50zm0 21-30 47h60M504 418v64m0-63-18 28h36zm0 15-23 32h46M68 567v66m0-63-19 30h38zm0 18-25 32h50M539 579v74m0-71-21 34h42zm0 19-28 38h56"/></g></g><g transform="translate(530 620)" opacity=".65"><circle r="26"/><circle r="19" stroke-dasharray="2 4"/><path d="M0-35V35m-35-35h70M0-24l7 24-7 24-7-24z"/><path d="M-17-17 17 17m0-34-34 34"/><path d="m0-24 7 24H0z" fill="currentColor"/></g></svg>`;
   return drawing + drawing.replace('xMidYMin meet', 'xMidYMax meet');
 }

@@ -1,22 +1,25 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function record(page: Page) { return JSON.parse((await page.locator('.run-inspector pre').textContent())!); }
-async function enter(page: Page) { await page.locator('[data-action="run-enter"]').click(); }
+async function enter(page: Page, nodeId?: string) {
+  const run = nodeId ? undefined : await record(page);
+  const id = nodeId ?? run.mapNodes[run.currentNodeIndex].id;
+  await page.locator(`[data-action="run-enter"][data-node-id="${id}"]`).click();
+}
 async function routeCard(page: Page) { await page.locator('.hand .card-debugRoute').click(); await page.keyboard.press('Enter'); }
 
-test('原战斗可开始冒险，地图精简后点击当前节点进入，未来节点不能跳关', async ({ page }) => {
+test('原战斗可开始冒险，同层所有节点直接可选且没有路线', async ({ page }) => {
   await page.goto('/?seed=157&debug=events');
   await page.getByRole('button', { name: '开始冒险' }).click();
-  await expect(page.locator('.run-screen')).toHaveAttribute('aria-label', '线性地图');
+  await expect(page.locator('.run-screen')).toHaveAttribute('aria-label', '自由探索地图');
   await expect(page.locator('.map-screen h1, .floor-tabs, .map-direction, .node-detail, .map-legend')).toHaveCount(0);
   const before = await record(page); expect(before.mapNodes).toHaveLength(40); expect(before.deck).toHaveLength(7);
   await expect(page.locator('.map-node')).toHaveCount(16);
-  const future = page.locator('[data-map-node="f1-boss"]');
-  await expect(future).toHaveAttribute('aria-disabled', 'true');
-  await future.click({ force: true });
-  expect(await record(page)).toEqual(before);
-  await expect(page.locator('.map-node[aria-current="step"]')).toHaveAttribute('data-map-node', 'f1-b1');
-  await enter(page); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
+  await expect(page.locator('[data-action="run-enter"]')).toHaveCount(16);
+  await expect(page.locator('.map-connections, .map-route, .map-origin, .map-current-marker')).toHaveCount(0);
+  await expect(page.locator('[data-map-node="f1-boss"]')).toHaveAttribute('data-action', 'run-enter');
+  await enter(page, 'f1-b9');
+  expect((await record(page)).battle.runContext.nodeId).toBe('f1-b9'); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
   await expect(page.getByRole('button', { name: '重新开始', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '切换测试战斗' })).toHaveCount(0);
 });
@@ -35,18 +38,22 @@ test('战斗中查看地图并返回，不改变牌区、生命或随机流', as
   expect(await record(page)).toEqual(before);
 });
 
-test('完成首战后确认结果只推进一次，已完成节点只能查看', async ({ page }) => {
-  await page.goto('/?mode=run&scenario=runRoute&debug=events'); await enter(page); await routeCard(page);
+test('乱序完成战斗后只结算一次，较早节点仍可进入，已完成节点不可重打', async ({ page }) => {
+  await page.goto('/?mode=run&scenario=runRoute&debug=events');
+  const positions = await page.locator('.map-stop').evaluateAll(elements => elements.map(element => element.getAttribute('style')));
+  await enter(page, 'f1-b9'); await routeCard(page);
   await expect(page.getByRole('heading', { name: '战斗胜利' })).toBeVisible();
   const pending = await record(page); expect(pending.runStatus).toBe('reward'); expect(pending.gold).toBe(20);
   await expect(page.getByRole('button', { name: '再战一次' })).toHaveCount(0);
   await page.getByRole('button', { name: '返回地图' }).click();
-  const after = await record(page); expect(after.gold).toBe(20); expect(after.currentNodeIndex).toBe(1);
+  const after = await record(page); expect(after.gold).toBe(20); expect(after.currentFloor).toBe(1); expect(after.completedNodes).toEqual(['f1-b9']);
   expect(after.rewardHistory).toHaveLength(1);
-  await page.locator('[data-map-node="f1-b1"]').click({ force: true });
-  await expect(page.locator('[data-map-node="f1-b1"]')).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('[data-map-node="f1-b1"]')).not.toHaveAttribute('data-action', 'run-enter');
+  expect(await page.locator('.map-stop').evaluateAll(elements => elements.map(element => element.getAttribute('style')))).toEqual(positions);
+  await page.locator('[data-map-node="f1-b9"]').click({ force: true });
+  await expect(page.locator('[data-map-node="f1-b9"]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('[data-map-node="f1-b9"]')).not.toHaveAttribute('data-action', 'run-enter');
   expect(await record(page)).toEqual(after);
+  await enter(page, 'f1-b1'); expect((await record(page)).battle.runContext.nodeId).toBe('f1-b1');
 });
 
 test('普通单局战斗失败结束本局，重新开局清空资产并恢复七张正式牌组', async ({ page }) => {
@@ -67,6 +74,42 @@ test('普通单局战斗失败结束本局，重新开局清空资产并恢复�
   const next = await record(page); expect(next.runId).not.toBe(old.runId); expect(next.currentNodeIndex).toBe(0);
   expect(next.gold).toBe(0); expect(next.currentHP).toBe(20); expect(next.deck).toHaveLength(7);
   expect(next.completedNodes).toEqual([]); expect(next.scenario).toBe('');
+});
+
+test('三层均可直接挑战Boss，跳过节点不领奖，第三层直接通关', async ({ page }) => {
+  await page.goto('/?mode=run&scenario=runRoute&seed=157&debug=events');
+  for (const floor of [1, 2, 3]) {
+    const before = await record(page);
+    await enter(page, `f${floor}-boss`);
+    expect((await record(page)).battle.runContext.nodeId).toBe(`f${floor}-boss`);
+    await routeCard(page);
+    for (let turn = 0; turn < 7 && !(await page.getByRole('dialog').count()); turn++) await page.getByRole('button', { name: '结束回合 →' }).click();
+    if (floor < 3) {
+      await page.locator('[data-action="run-ack"]').click();
+      const next = await record(page);
+      expect(next.currentFloor).toBe(floor + 1); expect(next.completedNodes).toHaveLength(floor);
+      expect(next.rewardHistory).toHaveLength(floor);
+      await expect(page.locator(`[data-map-node="f${floor}-b1"]`)).toHaveCount(0);
+      await expect(page.locator('[data-action="run-enter"]')).toHaveCount(floor === 1 ? 13 : 11);
+    } else {
+      await expect(page.getByRole('heading', { name: '通关成功' })).toBeVisible();
+      const final = await record(page);
+      expect(final.completedNodes).toEqual(['f1-boss', 'f2-boss', 'f3-boss']);
+      expect(final.rewardHistory).toHaveLength(2); expect(final.gold).toBe(before.gold);
+      expect(final.attributes).toEqual(before.attributes);
+    }
+  }
+});
+
+test('可以先去Boss旁火堆，返回地图后其他节点仍可自由选择', async ({ page }) => {
+  await page.goto('/?mode=run&seed=157&debug=events');
+  const before = await record(page);
+  await enter(page, 'f1-boss-camp'); await expect(page.locator('.safe-screen')).toBeVisible();
+  await page.getByRole('button', { name: '继续前进' }).click();
+  const after = await record(page);
+  expect(after.completedNodes).toEqual(['f1-boss-camp']); expect(after.currentHP).toBe(before.currentHP);
+  expect(after.gold).toBe(before.gold); await expect(page.locator('[data-action="run-enter"]')).toHaveCount(15);
+  await enter(page, 'f1-b5'); expect((await record(page)).battle.runContext.nodeId).toBe('f1-b5');
 });
 
 test('真实界面依次走完40节点22战，跨层保留资产且最终无奖励', async ({ page }) => {
@@ -120,20 +163,32 @@ test('从独立测试局面开始冒险不会携带调试卡或已有测试属�
 });
 
 for (const [width, height] of [[640, 720], [800, 600], [1440, 1000]]) {
-  test(`${width}×${height}地图铺满可用宽度，可滚动并直接进入当前节点`, async ({ page }) => {
+  test(`${width}×${height}地图均匀散乱、Boss位于最高处，节点互不重叠且可直接选择`, async ({ page }) => {
     await page.setViewportSize({ width, height }); await page.goto('/?mode=run&seed=157');
     await expect(page.locator('.run-header')).toBeInViewport({ ratio: 1 });
     await expect(page.locator('.floor-tabs, .node-detail')).toHaveCount(0);
     await page.locator('[data-map-node="f1-boss"]').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-map-node="f1-boss"]')).toBeInViewport({ ratio: 1 });
-    await page.locator('[data-map-node="f1-boss"]').click({ force: true });
-    await page.locator('[data-action="run-enter"]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-action="run-enter"]')).toHaveCount(16);
     await page.screenshot({ path: `test-results/run-map-${width}.png`, animations: 'disabled' });
     const route = (await page.locator('.map-scroll').boundingBox())!;
     expect(route.width).toBeGreaterThan(width * .9);
     const horizontal = await page.locator('.run-screen').evaluate(element => element.scrollWidth - element.clientWidth);
     expect(horizontal).toBeLessThanOrEqual(1);
-    await enter(page); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
+    const stops = await page.locator('.map-stop').evaluateAll(elements => elements.map(element => {
+      const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom,
+        boss: element.classList.contains('kind-boss') };
+    }));
+    const boss = stops.find(point => point.boss)!;
+    for (const point of stops.filter(point => !point.boss)) expect(point.y).toBeGreaterThan(boss.y);
+    // Scatter should not fall into a handful of aligned rows/columns.
+    expect(new Set(stops.map(point => Math.round(point.y / 8))).size).toBeGreaterThan(10);
+    for (let i = 0; i < stops.length; i++) for (let j = i + 1; j < stops.length; j++) {
+      const a = stops[i], b = stops[j];
+      expect(a.right <= b.x || b.right <= a.x || a.bottom <= b.y || b.bottom <= a.y).toBe(true);
+    }
+    expect(new Set(stops.map(point => Math.round(point.x / 50))).size).toBeGreaterThanOrEqual(width > 800 ? 4 : 3);
+    await enter(page, 'f1-boss'); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
     expect(await page.locator('.battlefield-track').evaluate(element => element.scrollLeft)).toBe(0);
   });
 }

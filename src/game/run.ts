@@ -27,6 +27,11 @@ function assertCurrent(run: RunState, nodeId: string, status: RunState['runStatu
     || run.completedNodes.includes(nodeId)) throw new Error('只能处理当前未完成节点。');
 }
 
+export function canEnterRunNode(run: RunState, nodeId: string): boolean {
+  return run.runStatus === 'map' && run.currentHP > 0 && !run.completedNodes.includes(nodeId)
+    && run.mapNodes.some(node => node.id === nodeId && node.floor === run.currentFloor);
+}
+
 function synchronizeAssets(run: RunState, battle: BattleState) {
   run.currentHP = battle.player.hp; run.maxHP = battle.player.maxHp;
   run.gold = battle.gold; run.attributes = { ...battle.attributes }; run.deck = structuredClone(battle.deck);
@@ -38,8 +43,10 @@ function synchronizeAssets(run: RunState, battle: BattleState) {
 }
 
 export function enterRunNode(input: RunState, nodeId: string): RunState {
-  assertCurrent(input, nodeId, 'map');
-  const run = structuredClone(input), node = currentNode(run);
+  if (!canEnterRunNode(input, nodeId)) throw new Error('只能进入当前楼层未完成的节点。');
+  const run = structuredClone(input);
+  run.currentNodeIndex = run.mapNodes.findIndex(node => node.id === nodeId);
+  const node = currentNode(run);
   if (!isBattleNode(node)) { run.runStatus = 'safe'; return run; }
   const options = { attributes: run.attributes, gold: run.gold, player: { hp: run.currentHP, maxHp: run.maxHP },
     party: run.party, rewardConfig: node.rewardConfig, runContext: { runId: run.runId, nodeId: node.id } };
@@ -76,9 +83,15 @@ export function actInRun(input: RunState, action: Action): RunState {
 }
 
 function advance(run: RunState) {
-  const node = currentNode(run), next = run.mapNodes[run.currentNodeIndex + 1];
-  if (!next) throw new Error('终点只能由第三层Boss通关处理。');
-  run.completedNodes.push(node.id); run.currentNodeIndex++; run.currentFloor = next.floor;
+  const node = currentNode(run);
+  run.completedNodes.push(node.id);
+  // Only defeating the floor's Boss changes floors. Skipped nodes are neither
+  // completed nor rewarded; ordinary visits always return to free selection.
+  if (node.kind === 'boss') run.currentFloor++;
+  const next = run.mapNodes.findIndex(candidate => candidate.floor === run.currentFloor
+    && !run.completedNodes.includes(candidate.id));
+  if (next < 0) throw new Error('当前楼层没有可用节点。');
+  run.currentNodeIndex = next;
   run.battle = null; run.pendingReward = null; run.runStatus = 'map';
 }
 
