@@ -4,6 +4,7 @@ import { damagePlayer } from './resolution';
 import { finishBattle, playerRef, recordEvent } from './events';
 import { pushDirection, resolvePushBatch } from './push';
 import { recordEnemyRemoval } from './scoring';
+import { bossSucceeded } from './boss';
 export function canMove(s: State, direction: number, amount = 1) {
   const end = s.player.position + direction * amount;
   return (direction === -1 || direction === 1) && end >= 0 && end < s.size && !s.enemies.some(e => e.position === end);
@@ -27,11 +28,17 @@ export function advanceEnemy(s: State, id: number) {
   for (let step = 0; step < enemy.speed; step++) {
     const next = enemy.position + Math.sign(s.player.position - enemy.position);
     if (next === s.player.position) {
+      if (s.boss?.enemyId === id) {
+        s.boss.hasContactedPlayer = true;
+        recordEvent(s, 'ENEMY_CONTACT', { target: playerRef, value: 0 });
+        finishBattle(s, bossSucceeded(s.boss) ? 'won' : 'lost', 'boss-contact');
+        return;
+      }
       s.log.push(`敌人 #${id} 尝试进入队伍格，接触后消失。`);
       recordEvent(s, 'ENEMY_CONTACT', { target: playerRef, value: enemy.damage });
       recordEnemyRemoval(s, enemy, 'contact');
       s.enemies = s.enemies.filter(e => e.id !== id); damagePlayer(s, enemy.damage, { kind: 'contact' });
-      if (s.status === 'playing' && !s.enemies.length) finishBattle(s, 'won', 'last-contact');
+      if (s.status === 'playing' && !s.boss && !s.enemies.length) finishBattle(s, 'won', 'last-contact');
       return;
     }
     if (s.enemies.some(e => e.id !== id && e.position === next)) { s.log.push(`敌人 #${id} 受阻，剩余移动作废。`); return; }

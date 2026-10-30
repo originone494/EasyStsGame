@@ -22,6 +22,7 @@ export interface DamageResult {
   baseTerms: DamageTerm[];
   percentBonuses: number[];
   resolved: number; hpLost: number; hpBefore: number; hpAfter: number;
+  bossAccumulatedDamage?: number;
 }
 export type PushDirection = 'away' | 'toward' | 'left' | 'right';
 export type PushCollisionMode = 'transfer' | 'opposed' | 'converge';
@@ -63,16 +64,20 @@ export interface CharacterDefinition { name: string; startingCards: string[] }
 // Characters share player health and position; no per-character health/position.
 export interface CharacterInstance { id: InstanceId; key: string }
 export interface PlayerState { position: number; hp: number; maxHp: number }
-export interface EnemyDefinition { name: string; hp: number; speed: number; damage: number; glyph: string }
+export interface EnemyDefinition { name: string; hp: number; speed: number; damage: number; glyph: string; art?: string }
 export interface EnemyState {
   id: InstanceId; kind: string; position: number;
   hp: number; maxHp: number; speed: number; damage: number;
+}
+export interface BossState {
+  enemyId: number; baseMaxHp: number; accumulatedDamage: number; hasContactedPlayer: boolean;
 }
 export interface EnemyScoreRecord {
   id: number; maxHp: number; hpLost: number; disposition: 'active' | 'killed' | 'contact';
 }
 export interface ScoreSummary { hpLost: number; maxHp: number; ratio: number; percent: number }
-export interface CardRewardEntitlement { choices: number; picks: number; canSkip: boolean }
+export interface CardRewardEntitlement { choices: number; picks: number; canSkip: boolean; rarity?: 'rare' }
+export interface RelicRewardEntitlement { count: number; rarity: 'common' | 'uncommon' }
 export interface RewardConfig {
   floor: number; attributeCap: number; baseGold: number; baseAttributes: AdaptationAttributes;
   cardOffer: CardRewardEntitlement | null;
@@ -81,10 +86,12 @@ export interface RewardOutcome {
   eligible: boolean; score: ScoreSummary; rewardRatio: number; gold: number;
   scaledAttributes: AdaptationAttributes; gainedAttributes: AdaptationAttributes; overflowAttributes: AdaptationAttributes;
   attributesAfter: AdaptationAttributes; cardOffer: CardRewardEntitlement | null;
+  relicOffer?: RelicRewardEntitlement | null;
 }
 export interface EncounterDefinition {
   id: string; name: string; description: string; player: number;
   rewardAttribute?: keyof AdaptationAttributes;
+  boss?: { unitIndex: number; baseMaxHp: number };
   units: { kind: string; position: number }[];
 }
 export interface BattleConfig { size: number; maxHp: number; handSize: number; seed: number; character: string }
@@ -150,6 +157,7 @@ export interface BattleState {
   deck: CardInstance[];
   player: PlayerState;
   enemies: EnemyState[];
+  boss: BossState | null;
   scoring: EnemyScoreRecord[];
   gold: number; rewardConfig: RewardConfig; reward: RewardOutcome | null;
   hand: BattleCardState[]; draw: BattleCardState[]; discard: BattleCardState[];

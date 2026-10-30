@@ -1,5 +1,5 @@
 import './style.css';
-import { createBattle, type State } from './game/state';
+import { createBattle, createBossBattle, type State } from './game/state';
 import { act, type Action } from './game/actions';
 import { createScenario, scenarios } from './game/scenarios';
 import { encounters, prototype } from './content/encounters';
@@ -19,7 +19,10 @@ const seed = Number.isInteger(seedValue) && seedValue >= 0 && seedValue <= 42949
 const encounterValue = Number(query.get('encounter') ?? 0);
 const encounter = Number.isInteger(encounterValue) && encounterValue >= 0 && encounterValue < encounters.length ? encounterValue : 0;
 const scenario = query.get('scenario');
-let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(scenario, seed) : createBattle(encounter, seed);
+const floorValue = Number(query.get('floor') ?? 1);
+const floor = Number.isInteger(floorValue) && floorValue >= 1 && floorValue <= 3 ? floorValue : 1;
+let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(scenario, seed)
+ : query.get('battle')==='boss'?createBossBattle(floor,seed):createBattle(encounter, seed);
 let openingState = structuredClone(state);
 let interaction: CardInteraction | undefined;
 let viewingPile: Pile | undefined;
@@ -29,6 +32,11 @@ function reset(next=false) {
  state=next?createBattle((state.encounter+1)%encounters.length,state.seed):structuredClone(openingState);
  if(next)openingState=structuredClone(state);
  feedback=[];render();
+}
+function newRun() {
+ for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
+ const search=query.toString();history.replaceState(null,'',`${location.pathname}${search?'?'+search:''}`);
+ state=createBattle(0,seed);openingState=structuredClone(state);viewingPile=undefined;feedback=[];render();
 }
 function perform(action:Action) {
  const previous:State=state;state=act(state,action);feedback=[];
@@ -47,7 +55,7 @@ function perform(action:Action) {
 }
 function render() {
  interaction?.cancel();
- app.innerHTML=`<div class="game-shell"><header class="game-header" ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><div class="brand"><span class="brand-emblem">✧</span><div>简单尖塔</div></div><div class="stats">${panels(state)}</div><nav><button data-action="restart" title="重新开始当前战斗">重新开始</button><button data-action="next">切换测试战斗</button></nav></header><main ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><section class="arena"><div class="initiative" aria-label="怪物行动顺序">${enemyOrder(state).map((id,i)=>`<span><b>${i+1}</b> #${id}</span>`).join('<i>›</i>')}</div><div class="scene-motes"><i></i><i></i><i></i><i></i><i></i></div><div class="battlefield-track">${battlefield(state)}</div><div class="combat-feedback" aria-hidden="true">${feedback.map((f,i)=>`<span class="floating-number ${f.tone}" style="left:${(f.position+.5)/state.size*100}%;--delay:${i*.12}s">${f.text}</span>`).join('')}</div><div class="hand-overlay" aria-label="悬浮手牌">${pileButton(state,'draw')}${hand(state)}${pileButton(state,'discard')}${pileButton(state,'exhaust')}<div class="action-bar"><div class="action-buttons"><button class="end-turn" data-action="end" ${state.status!=='playing'?'disabled':''}>结束回合 →</button></div></div></div></section></main>${result(state)}${viewingPile?pileBrowser(state,viewingPile):''}</div>`;
+ app.innerHTML=`<div class="game-shell"><header class="game-header" ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><div class="brand"><span class="brand-emblem">✧</span><div>简单尖塔</div></div><div class="stats">${panels(state)}</div><nav><button data-action="restart" title="${state.boss?'重新开局':'重新开始当前战斗'}">${state.boss?'重新开局':'重新开始'}</button><button data-action="next">切换测试战斗</button></nav></header><main ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><section class="arena"><div class="initiative" aria-label="怪物行动顺序">${enemyOrder(state).map((id,i)=>`<span><b>${i+1}</b> #${id}</span>`).join('<i>›</i>')}</div><div class="scene-motes"><i></i><i></i><i></i><i></i><i></i></div><div class="battlefield-track">${battlefield(state)}</div><div class="combat-feedback" aria-hidden="true">${feedback.map((f,i)=>`<span class="floating-number ${f.tone}" style="left:${(f.position+.5)/state.size*100}%;--delay:${i*.12}s">${f.text}</span>`).join('')}</div><div class="hand-overlay" aria-label="悬浮手牌">${pileButton(state,'draw')}${hand(state)}${pileButton(state,'discard')}${pileButton(state,'exhaust')}<div class="action-bar"><div class="action-buttons"><button class="end-turn" data-action="end" ${state.status!=='playing'?'disabled':''}>结束回合 →</button></div></div></div></section></main>${result(state)}${viewingPile?pileBrowser(state,viewingPile):''}</div>`;
  if(query.get('debug') === 'events') app.insertAdjacentHTML('beforeend', eventInspector(state));
  if(viewingPile){
   const dialog=app.querySelector<HTMLDialogElement>('.pile-dialog')!;
@@ -76,8 +84,9 @@ app.addEventListener('click',event=>{
  if(isPile(pile)&&state.status==='playing'){viewingPile=pile;render();return;}
  switch(button.dataset.action){
  case 'close-pile':closePile();return;
- case 'restart':reset();return;case 'next':reset(true);return;
- case 'continue':if(state.status==='won'&&state.reward?.eligible&&!state.scenario){state=continueBattle(state);openingState=structuredClone(state);feedback=[];render();}return;
+ case 'restart':if(state.boss)newRun();else reset();return;case 'next':reset(true);return;
+ case 'new-run':newRun();return;
+ case 'continue':if(state.status==='won'&&state.reward?.eligible&&!state.scenario&&!state.boss){state=continueBattle(state);openingState=structuredClone(state);feedback=[];render();}return;
  case 'end':interaction?.cancel();perform({type:'endTurn'});return;
  }
 });

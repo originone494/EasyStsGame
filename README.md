@@ -1,6 +1,6 @@
 # 简单尖塔 / EasyStsGame
 
-电脑浏览器单机卡牌战斗原型，TypeScript + Vite + HTML/CSS，无后端、无运行时第三方服务。界面采用像素风野外雾林、独立角色与敌人精灵、带插画卡牌。当前为**第一阶段**：三个可反复游玩的固定战斗；所有角色、卡牌、敌人数值都是临时内容。三层流程、存档、Boss 等见后续开发计划，当前尚未实现。
+电脑浏览器单机卡牌战斗原型，TypeScript + Vite + HTML/CSS，无后端、无运行时第三方服务。界面采用像素风野外雾林、独立角色与敌人精灵、带插画卡牌。当前为**第一阶段**：三个可反复游玩的固定战斗；所有角色、卡牌、敌人数值都是临时内容。已支持独立Boss输出挑战；完整三层地图、存档及正式内容仍见后续开发计划。
 
 ## Windows 免解压更新
 
@@ -29,11 +29,11 @@ npm run preview
 ## 验证
 
 ```sh
-npm test             # 184项：22规则＋8模型＋30事件＋31伤害＋36击退＋28天气＋29评分奖励
+npm test             # 222项：原有184项＋38项Boss规则
 npm run test:launcher # 12项启动器检查
 npm run build       # 严格 TypeScript 检查及生产构建
 npx playwright install chromium  # 本机首次浏览器验收时使用
-npm run test:browser # 61项浏览器流程（原有51项＋评分奖励10项）
+npm run test:browser # 75项浏览器流程（原有61项＋Boss14项）
 ```
 
 云环境已有 `/usr/bin/chromium`，无需下载浏览器：
@@ -54,6 +54,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - [步骤4同步击退执行规格与验收](docs/步骤4_同步击退执行规格与验收.md)
 - [步骤5天气与适应执行规格及验收](docs/步骤5_天气与适应执行规格及验收.md)
 - [步骤6非Boss评分奖励规格与验收](docs/步骤6_非Boss评分奖励规格与验收.md)
+- [步骤7Boss输出挑战规格与验收](docs/步骤7_Boss输出挑战规格与验收.md)
 - [当前规则确认（晴／雨／风）](docs/当前规则确认.md)
 - [V15.7规则与代码对照表](docs/V15.7规则与代码对照表.md)
 - [规则待定清单](docs/规则待定清单.md)
@@ -71,7 +72,8 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - `src/content/pushScenarios.ts`：七个开发用同步击退局面。
 - `src/content/weather.ts`、`src/game/weather.ts`：天气配置、周期、独立随机流和三项适应属性。
 - `src/content/weatherScenarios.ts`：六个开发用天气局面。
-- `src/content/economy.ts`：普通战奖励20金币＋5点指定适应、楼层上限50／100／200（用户确认的可调测试值）。
+- `src/content/economy.ts`：普通战20金币＋5点指定适应，Boss100金币＋三项适应各10点，楼层上限50／100／200（均为用户确认的可调测试值）。
+- `src/content/bossEncounters.ts`、`bossScenarios.ts`、`src/game/boss.ts`：独立Boss布局、十个开发局面、累计伤害及接触判定。
 - `src/game/scoring.ts`、`rewards.ts`、`progression.ts`：评分账本、20%保底精确奖励及临时三布局成长衔接。
 - `src/content/relics.ts`：开发局面的测试遗物，普通战斗不装配。
 - `src/game/`：独立规则；`src/ui/`：纯展示；`src/main.ts`：输入绑定。
@@ -86,6 +88,8 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 
 天气验收入口：`?scenario=weatherSun`、`?scenario=weatherRain`、`?scenario=weatherWind`（各天气属性增伤），`?scenario=weatherCycle`（连续观察第4／7／10回合切换），`?scenario=weatherMultipliers`（适应与独立倍率），`?scenario=weatherSources`（伤害来源隔离）。添加 `&debug=events` 查看天气、属性及事件。正常入口也显示天气和倒计时，初始三项适应为0；战后指定属性成长已接入，实际奖励受评分和楼层上限约束。完整规则见[步骤5规格](docs/步骤5_天气与适应执行规格及验收.md)。
 
-完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1～6的数据模型、事件、伤害、同步击退、天气适应和非Boss评分奖励已完成；Boss与完整单局仍按实施方案推进。天气采用用户确认的晴／雨／风及三项适应，覆盖旧昼夜设计。
+完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1～7的数据模型、事件、伤害、同步击退、天气适应、非Boss评分奖励和Boss挑战已完成；完整单局仍按实施方案推进。天气采用用户确认的晴／雨／风及三项适应，覆盖旧昼夜设计。
 
 评分奖励验收入口：`?scenario=scoreZero`、`scoreHalf`、`scoreSeventyFive`、`scoreFull`、`scoreCap`、`scoreDefeat`；操作与预期见[步骤6规格](docs/步骤6_非Boss评分奖励规格与验收.md)。普通战0%／50%／75%／100%评分分别获得4／12／16／20金币及1／3／4／5点指定适应，失败无奖励。实际选卡留待步骤9。
+
+Boss独立入口：`?battle=boss&floor=1&seed=157`（floor为1／2／3，使用正常七张牌组）。固定验收入口：`?scenario=boss99`、`boss100`、`boss110`、`bossPush`、`bossMixed`、`bossMinionContact`、`boss600`、`bossFinal`、`bossMulti`、`bossLethal`，追加`&debug=events`查看实际扣血与独立累计。Boss归零后不死亡，首次接触按输出达标结算；一二层奖励最高5倍，第三层直接通关无奖励。Boss结果的“重新开局”回到普通初始战斗，不重试失败Boss。实际地图、选卡和遗物池仍待后续步骤，详见[步骤7规格](docs/步骤7_Boss输出挑战规格与验收.md)。

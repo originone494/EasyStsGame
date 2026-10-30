@@ -1,4 +1,4 @@
-import { createBattle, type State } from './state';
+import { createBattle, createBossBattle, type State } from './state';
 import { prototype } from '../content/encounters';
 import { createDeck } from './deck';
 import { registerListener } from './listeners';
@@ -8,17 +8,21 @@ import { enemies } from '../content/enemies';
 import { weatherFixtures } from '../content/weatherScenarios';
 import { createScoring } from './scoring';
 import { rewardFixtures } from '../content/rewardScenarios';
+import { bossFixtures } from '../content/bossScenarios';
 export const scenarios = [ { id: 'heal', name: '最后击杀后治疗' }, { id: 'empty', name: '空牌堆与执行区' }, { id: 'lethal', name: '接触致死' }, { id: 'chain', name: '击退传递' },
   { id: 'events', name: '最后击杀遗物连锁' }, { id: 'snapshots', name: '遗物数值快照' }, { id: 'eventLethal', name: '生命代价立即失败' }, { id: 'eventTarget', name: '目标失效保留治疗' },
   { id: 'damageFormula', name: '独立倍率伤害' }, { id: 'damageMulti', name: '每段独立取整' }, { id: 'damageWave', name: '群体同步击杀' },
   { id: 'damagePartial', name: '群体部分击杀' }, { id: 'damageKinds', name: '伤害来源分类' },
   ...Object.entries(pushFixtures).map(([id, fixture]) => ({ id, name: fixture.name })),
   ...Object.entries(weatherFixtures).map(([id, fixture]) => ({ id, name: fixture.name })),
-  ...Object.entries(rewardFixtures).map(([id, fixture]) => ({ id, name: fixture.name })) ];
+  ...Object.entries(rewardFixtures).map(([id, fixture]) => ({ id, name: fixture.name })),
+  ...Object.entries(bossFixtures).map(([id, fixture]) => ({ id, name: fixture.name })) ];
 export function createScenario(id: string, seed = prototype.seed): State {
   const weatherFixture = weatherFixtures[id];
   const rewardFixture = rewardFixtures[id];
-  const s = createBattle(0, seed, undefined, [], weatherFixture ? { initialWeather: weatherFixture.initial, attributes: weatherFixture.attributes }
+  const bossFixture = bossFixtures[id];
+  const s = bossFixture ? createBossBattle(bossFixture.floor ?? 1, seed, undefined, [], { initialWeather: 'rain', attributes: bossFixture.attributes })
+    : createBattle(0, seed, undefined, [], weatherFixture ? { initialWeather: weatherFixture.initial, attributes: weatherFixture.attributes }
     : rewardFixture ? { initialWeather: 'rain', attributes: rewardFixture.attributes } : {});
   s.scenario = id; s.log = ['开发局面：固定手牌，仅用于规则验收。'];
   if (id === 'heal') { s.player.hp = 7; s.enemies = [{ ...s.enemies[0], hp: 2 }]; s.hand = [{ id: 0, key: 'debugHeal' }]; s.draw = []; s.discard = []; }
@@ -91,12 +95,21 @@ export function createScenario(id: string, seed = prototype.seed): State {
     s.enemies = rewardFixture.units.map(unit => ({ ...enemies.brute, ...unit, kind: 'brute', maxHp: enemies.brute.hp }));
     s.hand = rewardFixture.cards.map((key, id) => ({ key, id })); s.draw = []; s.discard = [];
   }
+  if (bossFixture) {
+    const boss = s.boss!, unit = s.enemies.find(enemy => enemy.id === boss.enemyId)!;
+    boss.accumulatedDamage = bossFixture.damage;
+    unit.hp = Math.max(0, boss.baseMaxHp - boss.accumulatedDamage); unit.position = bossFixture.position;
+    s.player.hp = bossFixture.hp ?? s.player.maxHp;
+    if (bossFixture.minion) s.enemies.push({ ...enemies.runner, id: 2, kind: 'runner', maxHp: enemies.runner.hp,
+      position: 5, speed: 1, damage: bossFixture.minion === 'contact' ? 2 : 0 });
+    s.hand = bossFixture.cards.map((key, id) => ({ key, id })); s.draw = []; s.discard = [];
+  }
   // Fixtures have deliberate custom decks; keep their permanent registry in sync.
   s.deck = [...s.hand, ...s.draw, ...s.discard, ...s.exhaust, ...s.executing]
     .map(card => createDeck([card.key], card.id)[0]);
   // A fixture starts at its preset state; omit the discarded normal opening.
   s.events = []; s.eventHistory = []; s.eventTrace = []; s.nextEventId = 1; s.nextDamageBatchId = 1;
   s.pushHistory = []; s.nextPushBatchId = 1;
-  s.scoring = createScoring(s.enemies);
+  s.scoring = createScoring(s.enemies.filter(enemy => enemy.id !== s.boss?.enemyId));
   return s;
 }

@@ -2,6 +2,7 @@ import type { BattleState, DamageKind, DamageModifiers, DamageRequest, DamageRes
 import { finishBattle, recordEvent } from './events';
 import { activeAdaptation } from './weather';
 import { recordEnemyHpLoss, recordEnemyRemoval } from './scoring';
+import { addBossDamage } from './boss';
 
 interface Fraction { numerator: bigint; denominator: bigint }
 
@@ -83,7 +84,7 @@ function recordBatchEvents(s: BattleState, prepared: PreparedDamage[]) {
       batchId: result.batchId, damage: result, hpLossCause: 'damage', parentId: parentIds.get(result)! });
   }
   for (const { result } of prepared) {
-    if (result.target.kind === 'enemy' && result.hpAfter === 0) {
+    if (result.target.kind === 'enemy' && result.target.id !== s.boss?.enemyId && result.hpAfter === 0) {
       recordEvent(s, 'ENEMY_DIED', { target: result.target, batchId: result.batchId, damage: result, parentId: parentIds.get(result)! },
         { type: 'death', target: result.target.id });
       s.log.push(`敌人 #${result.target.id} 被击杀。`);
@@ -98,7 +99,8 @@ export function resolveDamageBatch(s: BattleState, requests: readonly DamageRequ
   // Plan everything before mutating anything, including formula validation.
   for (const request of requests) {
     const unit = request.target.kind === 'player' ? s.player : s.enemies.find(enemy => enemy.id === request.target.id);
-    if (!unit || unit.hp <= 0) continue;
+    const isBoss = request.target.kind === 'enemy' && request.target.id === s.boss?.enemyId;
+    if (!unit || (unit.hp <= 0 && !isBoss)) continue;
     const key = `${request.target.kind}:${request.target.id}`;
     if (seen.has(key)) throw new Error('同一同步伤害批次不能重复指定同一目标；多段伤害应建立独立批次。');
     seen.add(key);
@@ -115,7 +117,13 @@ export function resolveDamageBatch(s: BattleState, requests: readonly DamageRequ
   if (!prepared.length) return [];
   prepared.sort((a, b) => a.distance - b.distance || a.result.target.id - b.result.target.id);
   const score = { scoring: structuredClone(s.scoring) };
+  let boss = s.boss ? { ...s.boss } : null;
   for (const { result, unit } of prepared) if (result.target.kind === 'enemy') {
+    if (boss && result.target.id === boss.enemyId) {
+      boss = addBossDamage(boss, result.resolved);
+      result.bossAccumulatedDamage = boss.accumulatedDamage;
+      continue;
+    }
     const enemy = { id: result.target.id, maxHp: unit.maxHp };
     recordEnemyHpLoss(score, enemy, result.hpLost);
     if (result.hpAfter === 0) recordEnemyRemoval(score, enemy, 'killed');
@@ -123,11 +131,11 @@ export function resolveDamageBatch(s: BattleState, requests: readonly DamageRequ
   s.nextDamageBatchId++;
   // Commit HP and its accounting together; no partial batch is observable.
   for (const { result, unit } of prepared) unit.hp = result.hpAfter;
-  s.scoring = score.scoring;
-  const deadIds = new Set(prepared.filter(item => item.result.target.kind === 'enemy' && item.result.hpAfter === 0).map(item => item.result.target.id));
+  s.scoring = score.scoring; s.boss = boss;
+  const deadIds = new Set(prepared.filter(item => item.result.target.kind === 'enemy' && item.result.target.id !== boss?.enemyId && item.result.hpAfter === 0).map(item => item.result.target.id));
   s.enemies = s.enemies.filter(enemy => !deadIds.has(enemy.id));
   recordBatchEvents(s, prepared);
   if (s.player.hp <= 0) finishBattle(s, 'lost', 'player-death');
-  else if (!s.enemies.length) { s.lastKillPending = true; s.phase = 'closing'; }
+  else if (!s.boss && !s.enemies.length) { s.lastKillPending = true; s.phase = 'closing'; }
   return prepared.map(item => item.result);
 }

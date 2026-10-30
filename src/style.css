@@ -142,6 +142,9 @@ img{image-rendering:pixelated;user-select:none;pointer-events:none}
 
 .card-keywords{display:block;text-align:center;font-weight:700;margin-bottom:4px;color:#304e45}
 .card-effect{display:block}
+.enemy.boss .unit-health>span{background:linear-gradient(#d8bf82,#9b7d4d)}
+.enemy.boss .unit-name{color:#dfc68e}
+.score-status .boss-threshold{color:#d6bf8c;font:10px/1.2 "Microsoft YaHei",sans-serif}
 
 .version{font-size:12px;color:#7e8f85;letter-spacing:1px;margin-right:6px}
 

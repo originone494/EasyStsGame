@@ -30,7 +30,7 @@ export function healPlayer(s: State, amount: number) {
   s.log.push(`队伍恢复 ${s.player.hp - before} 点生命。`);
 }
 export function settle(s: State) {
-  if (s.status === 'playing' && !s.enemies.length && !s.executing.length && !s.processingEvents && !s.eventQueue.length) {
+  if (s.status === 'playing' && !s.boss && !s.enemies.length && !s.executing.length && !s.processingEvents && !s.eventQueue.length) {
     finishBattle(s, 'won', 'last-kill');
   }
 }

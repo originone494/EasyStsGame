@@ -1,6 +1,7 @@
-import type { AdaptationAttributes, BattleState, RewardConfig, RewardOutcome, ScoreSummary } from './model';
-import { attributeKeys, zeroAttributes } from '../content/economy';
+import type { AdaptationAttributes, BattleState, BossState, RewardConfig, RewardOutcome, ScoreSummary } from './model';
+import { attributeKeys, bossEconomyRules, zeroAttributes } from '../content/economy';
 import { summarizeScore } from './scoring';
+import { bossScore, bossSucceeded } from './boss';
 
 function integer(value: number, name: string) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${name}必须为非负安全整数。`);
@@ -22,14 +23,36 @@ export function validateRewardConfig(config: RewardConfig): RewardConfig {
 // Use integer fractions for rewards; floating score percentages are display only.
 export function calculateNonBossRewards(config: RewardConfig, input: Pick<ScoreSummary, 'hpLost' | 'maxHp'>,
   current: AdaptationAttributes, eligible = true): RewardOutcome {
-  validateRewardConfig(config); validateAttributes(current);
   integer(input.hpLost, '有效生命损失'); integer(input.maxHp, '计分最大生命');
   const hpLost = Math.min(input.hpLost, input.maxHp), maxHp = input.maxHp;
   const ratio = maxHp ? hpLost / maxHp : 0;
   const score = { hpLost, maxHp, ratio, percent: ratio * 100 };
   const allowed = eligible && maxHp > 0;
   const numerator = BigInt(maxHp) + 4n * BigInt(hpLost), denominator = 5n * BigInt(maxHp);
-  const scaled = (base: number) => !allowed ? 0 : Number((BigInt(base) * numerator + denominator - 1n) / denominator);
+  return calculateRewards(config, score, current, numerator, denominator, allowed);
+}
+
+export function calculateBossRewards(config: RewardConfig, boss: BossState,
+  current: AdaptationAttributes, eligible = true): RewardOutcome {
+  if (config.floor > 3) throw new Error('Boss楼层必须为1至3。');
+  const score = bossScore(boss);
+  const allowed = eligible && bossSucceeded(boss) && config.floor < 3;
+  const denominator = BigInt(boss.baseMaxHp), cap = denominator * BigInt(bossEconomyRules.maxMultiplier);
+  const damage = BigInt(boss.accumulatedDamage), numerator = damage < cap ? damage : cap;
+  const reward = calculateRewards(config, score, current, numerator, denominator, allowed);
+  reward.relicOffer = allowed ? { count: 1, rarity: config.floor === 1 ? 'common' : 'uncommon' } : null;
+  return reward;
+}
+
+function calculateRewards(config: RewardConfig, score: ScoreSummary, current: AdaptationAttributes,
+  numerator: bigint, denominator: bigint, allowed: boolean): RewardOutcome {
+  validateRewardConfig(config); validateAttributes(current);
+  const scaled = (base: number) => {
+    if (!allowed) return 0;
+    const result = (BigInt(base) * numerator + denominator - 1n) / denominator;
+    if (result > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('奖励超出安全整数范围。');
+    return Number(result);
+  };
   const scaledAttributes = zeroAttributes(), gainedAttributes = zeroAttributes(), overflowAttributes = zeroAttributes();
   const attributesAfter = { ...current };
   for (const key of attributeKeys) {
@@ -47,8 +70,10 @@ export function calculateNonBossRewards(config: RewardConfig, input: Pick<ScoreS
 
 export function grantBattleRewards(s: BattleState) {
   if (s.status === 'playing' || s.reward !== null) return;
-  const reward = calculateNonBossRewards(s.rewardConfig, summarizeScore(s.scoring), s.attributes,
-    s.status === 'won' && s.finishReason !== 'boss-contact');
+  const reward = s.boss ? calculateBossRewards(s.rewardConfig, s.boss, s.attributes,
+    s.status === 'won' && s.finishReason === 'boss-contact' && s.boss.hasContactedPlayer)
+    : calculateNonBossRewards(s.rewardConfig, summarizeScore(s.scoring), s.attributes,
+      s.status === 'won' && s.finishReason !== 'boss-contact');
   integer(s.gold, '金币余额');
   const balance = s.gold + reward.gold;
   integer(balance, '结算后金币');
