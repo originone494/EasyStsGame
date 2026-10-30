@@ -45,6 +45,7 @@ export interface CardDefinition {
   name: string;
   kind: string;
   description: string;
+  keywords?: string[];
   art?: string;
   target: 'enemy' | 'direction' | 'none';
   effects: Effect[];

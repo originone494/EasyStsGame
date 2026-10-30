@@ -6,7 +6,7 @@ export const cards: Record<string, CardDefinition> = {
   step: { name: '移步', kind: '通用 · 移动', description: '向左或向右移动 1 格。终点须为空。', target: 'direction', effects: [{ type: 'move', amount: 1 }] },
   push: { name: '击退', kind: '通用 · 战术', description: '将敌人向远离你的方向击退 2 格。碰撞传递剩余位移。', target: 'enemy', effects: [{ type: 'push', amount: 2 }] },
   combo: { name: '连击', kind: '角色 · 攻击', description: '对任意敌人造成 3 次 2 点基础伤害。目标死亡后停止。', target: 'enemy', effects: [{ type: 'damage', amount: 2, hits: 3 }] },
-  prepare: { name: '整备', kind: '角色 · 技能', description: '抽 2 张牌。消耗：本场不再回到牌组。', target: 'none', effects: [{ type: 'draw', amount: 2 }], exhaust: true },
+  prepare: { name: '整备', kind: '角色 · 技能', description: '抽 2 张牌。', target: 'none', effects: [{ type: 'draw', amount: 2 }], exhaust: true },
   debugHeal: { name: '收尾治疗（测试）', kind: '开发用 · 不进入正式牌组', description: '造成 4 点伤害，然后恢复 5 点生命。', target: 'enemy', effects: [{ type: 'damage', amount: 4 }, { type: 'heal', amount: 5 }] },
   debugZero: { name: '零伤害（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '对敌人结算 0 点伤害，用于验证事件与遗物快照。', target: 'enemy', effects: [{ type: 'damage', amount: 0 }] },
   debugCost: { name: '生命代价（测试）', art: 'debugHeal', kind: '开发用 · 不进入正式牌组', description: '先失去 3 点生命，再恢复 5 点生命。代价致死则立即失败。', target: 'none', effects: [{ type: 'loseHp', amount: 3 }, { type: 'heal', amount: 5 }] },

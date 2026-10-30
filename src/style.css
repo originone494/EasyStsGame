@@ -124,9 +124,7 @@ img{image-rendering:pixelated;user-select:none;pointer-events:none}
 
 .card-cost{display:flex;justify-content:center;align-items:center;position:absolute;top:-10px;left:-12px;width:27px;height:29px;background:#304f50;border:2px solid #bdaf7f;border-radius:30%;color:#dfdbb3;font:bold 19px Georgia,serif;box-shadow:1px 2px #1f333c}
 
-.card-top small{font-size:11px;color:#4c5646;margin-left:18px;letter-spacing:.5px}
-
-.card-mark{margin-left:auto;font-size:14px;color:#807144}
+.card-top small{font-size:11px;color:#4c5646;margin-left:auto;padding-left:18px;text-align:right;letter-spacing:.5px}
 
 .card-art{height:91px;background:radial-gradient(ellipse at center,#4d6c68,#233e45 80%);border:1px solid #8e845c;margin:3px 1px 0;overflow:hidden;position:relative;box-shadow:inset 0 0 15px #0b2224}
 
@@ -142,9 +140,8 @@ img{image-rendering:pixelated;user-select:none;pointer-events:none}
 
 .card p{font-size:13px;line-height:1.6;margin:0;padding:1px 6px;flex:1;color:#454b3e}
 
-.card footer{font-size:11px;letter-spacing:.5px;border-top:1px solid #857c5155;padding:4px 4px 0;color:#6b694e;display:flex;justify-content:space-between;margin:4px 3px 0}
-
-.card footer span{color:#7c7251}
+.card-keywords{display:block;text-align:center;font-weight:700;margin-bottom:4px;color:#304e45}
+.card-effect{display:block}
 
 .version{font-size:12px;color:#7e8f85;letter-spacing:1px;margin-right:6px}
 
@@ -277,7 +274,6 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 .hand .card h3{font-size:23px;letter-spacing:3px;margin:10px 0 7px}
 .hand .card p{font-size:15px;line-height:1.7;padding:0 9px}
 .hand .card-top small{font-size:13px}
-.hand .card footer{font-size:12px;padding:6px 4px 0;margin-top:8px}
 .hand-counter{position:absolute;bottom:32px;left:108px;font-size:13px;color:#adba9c}
 .deck-pile{position:absolute;bottom:45px;width:65px;display:flex;align-items:center;flex-direction:column;gap:3px;text-align:center;pointer-events:none}
 .draw-pile{left:28px}
@@ -334,14 +330,14 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 @media(max-height:760px){
  .game-shell{--card-height:270px;--card-width:190px;--ground-line:65%;--unit-height:190px}
  .hand{bottom:-55px}.hand .card-art{height:105px}.hand .card h3{font-size:21px}.hand .card p{font-size:14px}.hand>.card:hover,.hand>.card:focus-visible{transform:translateY(-65px) rotate(0) scale(1.05)}
- .scene-heading{top:85px}.scene-heading h1{font-size:28px}.initiative{top:90px}.hand .card footer{margin-top:4px}.instruction{bottom:calc(25% + 8px)}
+ .scene-heading{top:85px}.scene-heading h1{font-size:28px}.initiative{top:90px}.instruction{bottom:calc(25% + 8px)}
 }
 @media(max-width:800px){
  .game-shell{--card-width:170px;--card-height:260px;--unit-height:160px}
  .game-header{height:70px;padding:8px 15px;gap:10px}.brand{font-size:22px;letter-spacing:2px}.brand-emblem{font-size:33px}.brand small{font-size:10px}.hero-status{min-width:130px;gap:6px}.hero-status>img{width:30px;height:40px}.hero-title small{display:none}.health-track{width:110px}.stats{gap:12px}.turn-status{padding-left:10px;gap:5px}.turn-status>span{display:none}.turn-status strong{font-size:23px}.game-header nav{position:absolute;right:15px;top:78px}.game-header nav button{padding:5px 8px;font-size:12px}
  .scene-heading{left:15px;top:80px}.scene-heading h1{font-size:26px}.scene-heading p{font-size:13px}.chapter small{display:none}.initiative{top:158px;right:15px;padding:5px 8px;gap:4px}.initiative small{font-size:11px}.initiative>span{font-size:12px}
  .intent{gap:3px;padding:2px 3px}.intent b,.intent>span{font-size:11px}.intent>span{padding-left:3px}.unit-name i{font-size:10px;padding:0 1px}.hp-label{font-size:12px}.hp-label small{font-size:10px}.enemy-id{display:none}.player-unit .unit-name{font-size:12px}.player-label{font-size:9px}
- .hand{width:calc(100% - 110px);bottom:-40px}.hand>.card{margin-left:-58px}.hand .card-art{height:100px}.hand .card h3{font-size:20px}.hand .card p{font-size:13px}.hand .card-top small{font-size:11px}.hand .card footer{font-size:11px}
+ .hand{width:calc(100% - 110px);bottom:-40px}.hand>.card{margin-left:-58px}.hand .card-art{height:100px}.hand .card h3{font-size:20px}.hand .card p{font-size:13px}.hand .card-top small{font-size:11px}
  .deck-pile{width:38px;bottom:42px}.draw-pile{left:12px}.discard-pile{right:12px}.deck-card{width:30px;height:48px;font-size:26px}.deck-pile small{font-size:11px}.deck-pile>span{font-size:9px}.hand-counter{left:60px;bottom:30px;font-size:11px}
  .scene-footer{left:15px;right:15px;font-size:11px;letter-spacing:0}.scene-footer>span:last-child{display:none}.end-turn{right:15px;min-width:100px;padding:9px 12px;font-size:13px}.instruction{font-size:12px;white-space:normal;max-width:75%;width:max-content;bottom:calc(25% + 16px)}
  .utility-bar{gap:13px;padding:2px 12px}.utility-bar .version{display:none}.utility-bar details summary{font-size:11px}.move-choice span{font-size:11px}.move-choice b{font-size:26px}.move-choice{height:90px}
@@ -360,7 +356,6 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 .intent>span{padding-left:4px}
 .hand .card p{line-height:1.45}
 .hand .card-top small{letter-spacing:0}
-.hand .card footer{line-height:1.3}
 @media(max-width:800px){
  .health-track{width:125px}.game-header{gap:14px}.stats{flex:0;gap:10px}.hero-status{min-width:0}.turn-status{padding-left:12px}.deck-pile{bottom:7px;width:38px}.draw-pile{left:6px}.discard-pile{right:6px}.intent{gap:2px;padding:2px}.intent>span{padding-left:2px}.unit-name{font-size:11px}.unit-name i{font-size:10px}
 }
@@ -393,7 +388,6 @@ button.deck-pile:hover .deck-card{border-color:#efdaa1;filter:brightness(1.2)}
 .pile-card h3{font-size:23px;margin:10px 0 7px}
 .pile-card p{font-size:15px;line-height:1.5;padding:0 8px}
 .pile-card .card-top small{font-size:12px}
-.pile-card footer{font-size:12px;padding-top:6px;margin-top:8px}
 .pile-empty{grid-column:1/-1;font-size:17px;color:#a9b69e;text-align:center;margin:60px 0}
 @media(max-width:800px){.exhaust-pile{right:52px}.pile-dialog{width:calc(100vw - 24px);height:calc(100svh - 32px)}.pile-header{padding:14px 16px}.pile-header h2{font-size:24px}.pile-tabs{padding:12px 16px;gap:7px}.pile-tabs button{font-size:13px;padding:7px 9px}.pile-note{padding:0 16px 8px;font-size:12px}.pile-contents{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));padding:16px;gap:20px 14px}.pile-card{width:180px;height:310px}.pile-card p{font-size:14px}.pile-card h3{font-size:21px}}
 .deck-pile>.deck-card{font-size:34px;margin:0}
