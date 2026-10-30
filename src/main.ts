@@ -11,6 +11,7 @@ import { panels, result } from './ui/panels';
 import { enemyOrder } from './game/turn';
 import { eventInspector } from './ui/eventInspector';
 import { weatherLabels } from './content/weather';
+import { continueBattle } from './game/progression';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
 const query = new URLSearchParams(location.search);
 const seedValue = Number(query.get('seed') ?? prototype.seed);
@@ -19,11 +20,16 @@ const encounterValue = Number(query.get('encounter') ?? 0);
 const encounter = Number.isInteger(encounterValue) && encounterValue >= 0 && encounterValue < encounters.length ? encounterValue : 0;
 const scenario = query.get('scenario');
 let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(scenario, seed) : createBattle(encounter, seed);
+let openingState = structuredClone(state);
 let interaction: CardInteraction | undefined;
 let viewingPile: Pile | undefined;
 let feedback: {position:number;text:string;tone:string}[]=[];
 const app=document.querySelector<HTMLDivElement>('#app')!;
-function reset(next=false) { state=state.scenario&&!next?createScenario(state.scenario,state.seed):createBattle((state.encounter+(next?1:0))%encounters.length,state.seed); feedback=[]; render(); }
+function reset(next=false) {
+ state=next?createBattle((state.encounter+1)%encounters.length,state.seed):structuredClone(openingState);
+ if(next)openingState=structuredClone(state);
+ feedback=[];render();
+}
 function perform(action:Action) {
  const previous:State=state;state=act(state,action);feedback=[];
  for(const e of state.events.slice(previous.events.length)){
@@ -71,6 +77,7 @@ app.addEventListener('click',event=>{
  switch(button.dataset.action){
  case 'close-pile':closePile();return;
  case 'restart':reset();return;case 'next':reset(true);return;
+ case 'continue':if(state.status==='won'&&state.reward?.eligible&&!state.scenario){state=continueBattle(state);openingState=structuredClone(state);feedback=[];render();}return;
  case 'end':interaction?.cancel();perform({type:'endTurn'});return;
  }
 });

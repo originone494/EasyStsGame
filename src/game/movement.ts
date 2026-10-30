@@ -3,6 +3,7 @@ import type { PushDirection } from './model';
 import { damagePlayer } from './resolution';
 import { finishBattle, playerRef, recordEvent } from './events';
 import { pushDirection, resolvePushBatch } from './push';
+import { recordEnemyRemoval } from './scoring';
 export function canMove(s: State, direction: number, amount = 1) {
   const end = s.player.position + direction * amount;
   return (direction === -1 || direction === 1) && end >= 0 && end < s.size && !s.enemies.some(e => e.position === end);
@@ -28,6 +29,7 @@ export function advanceEnemy(s: State, id: number) {
     if (next === s.player.position) {
       s.log.push(`敌人 #${id} 尝试进入队伍格，接触后消失。`);
       recordEvent(s, 'ENEMY_CONTACT', { target: playerRef, value: enemy.damage });
+      recordEnemyRemoval(s, enemy, 'contact');
       s.enemies = s.enemies.filter(e => e.id !== id); damagePlayer(s, enemy.damage, { kind: 'contact' });
       if (s.status === 'playing' && !s.enemies.length) finishBattle(s, 'won', 'last-contact');
       return;

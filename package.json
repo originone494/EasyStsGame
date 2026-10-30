@@ -1,6 +1,6 @@
 {
   "name": "easy-sts-game", "private": true, "version": "0.1.0", "type": "module",
   "engines": { "node": ">=22.12" },
-  "scripts": { "dev": "vite --host 0.0.0.0", "build": "tsc --noEmit && vite build", "preview": "vite preview --host 0.0.0.0", "test": "vitest run tests/battle.test.ts tests/model.test.ts tests/events.test.ts tests/damage.test.ts tests/push.test.ts tests/weather.test.ts", "test:browser": "playwright test", "test:launcher": "node --test tests/launcher/launcher.test.cjs" },
+  "scripts": { "dev": "vite --host 0.0.0.0", "build": "tsc --noEmit && vite build", "preview": "vite preview --host 0.0.0.0", "test": "vitest run tests/battle.test.ts tests/model.test.ts tests/events.test.ts tests/damage.test.ts tests/push.test.ts tests/weather.test.ts tests/rewards.test.ts", "test:browser": "playwright test", "test:launcher": "node --test tests/launcher/launcher.test.cjs" },
   "devDependencies": { "typescript": "~5.9.3", "vite": "^7.3.1", "vitest": "^4.0.18", "@playwright/test": "^1.58.2" }
 }

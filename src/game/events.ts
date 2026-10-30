@@ -1,4 +1,5 @@
 import type { BattleState, BattleEvent, DamageResult, EntityRef, EventContext, EventType, FinishReason, GameEvent, PushEventDetail } from './model';
+import { grantBattleRewards } from './rewards';
 
 export const playerRef = { kind: 'player', id: 0 } as const;
 const systemContext: EventContext = { source: { kind: 'system', id: 'battle' }, parentId: null, allowChain: true };
@@ -39,6 +40,7 @@ export function finishBattle(s: BattleState, status: 'won' | 'lost', reason: Fin
   for (const event of s.eventQueue) s.eventTrace.push({ kind: 'cancel', eventId: event.id, message: reason });
   s.eventQueue = [];
   s.eventTrace.push({ kind: 'finish', message: `${status}: ${reason}` });
+  grantBattleRewards(s);
   s.log.push(reason === 'boss-contact' ? `Boss接触，输出${status === 'won' ? '达标，战斗胜利' : '未达标，战斗失败'}！`
     : status === 'lost' ? '共享生命归零，战斗失败。'
     : reason === 'last-contact' ? '最后怪物接触消失，队伍存活，战斗胜利！'

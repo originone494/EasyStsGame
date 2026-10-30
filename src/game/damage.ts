@@ -1,6 +1,7 @@
 import type { BattleState, DamageKind, DamageModifiers, DamageRequest, DamageResult, DamageTerm, UnitRef } from './model';
 import { finishBattle, recordEvent } from './events';
 import { activeAdaptation } from './weather';
+import { recordEnemyHpLoss, recordEnemyRemoval } from './scoring';
 
 interface Fraction { numerator: bigint; denominator: bigint }
 
@@ -62,7 +63,7 @@ function applicableModifiers(s: BattleState, request: DamageRequest): DamageModi
   return { flat, multipliers, percentBonuses };
 }
 
-interface PreparedDamage { result: DamageResult; unit: { hp: number }; distance: number }
+interface PreparedDamage { result: DamageResult; unit: { hp: number; maxHp: number }; distance: number }
 
 // Isolated policy: all damage facts, then actual HP loss, then deaths.
 // This is the documented provisional cross-type order, not a final design ruling.
@@ -113,10 +114,16 @@ export function resolveDamageBatch(s: BattleState, requests: readonly DamageRequ
   }
   if (!prepared.length) return [];
   prepared.sort((a, b) => a.distance - b.distance || a.result.target.id - b.result.target.id);
+  const score = { scoring: structuredClone(s.scoring) };
+  for (const { result, unit } of prepared) if (result.target.kind === 'enemy') {
+    const enemy = { id: result.target.id, maxHp: unit.maxHp };
+    recordEnemyHpLoss(score, enemy, result.hpLost);
+    if (result.hpAfter === 0) recordEnemyRemoval(score, enemy, 'killed');
+  }
   s.nextDamageBatchId++;
-  // Commit the entire batch. No damage helper, event dispatch, or terminal check
-  // is called between targets, so observers cannot see a partial result.
+  // Commit HP and its accounting together; no partial batch is observable.
   for (const { result, unit } of prepared) unit.hp = result.hpAfter;
+  s.scoring = score.scoring;
   const deadIds = new Set(prepared.filter(item => item.result.target.kind === 'enemy' && item.result.hpAfter === 0).map(item => item.result.target.id));
   s.enemies = s.enemies.filter(enemy => !deadIds.has(enemy.id));
   recordBatchEvents(s, prepared);

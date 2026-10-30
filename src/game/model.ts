@@ -6,7 +6,10 @@ export interface WeatherState {
   initial: WeatherKind; current: WeatherKind; cycle: WeatherKind[]; turnsPerWeather: number;
   rng: number; lastUpdatedTurn: number;
 }
-export interface BattleOptions { initialWeather?: WeatherKind; attributes?: Partial<AdaptationAttributes> }
+export interface BattleOptions {
+  initialWeather?: WeatherKind; attributes?: Partial<AdaptationAttributes>;
+  gold?: number; player?: { hp: number; maxHp: number }; rewardConfig?: RewardConfig;
+}
 export type DamageKind = 'card' | 'relic' | 'indirect' | 'contact';
 export type UnitRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number };
 export interface DamageTerm { value: number; coefficient: number }
@@ -64,8 +67,23 @@ export interface EnemyState {
   id: InstanceId; kind: string; position: number;
   hp: number; maxHp: number; speed: number; damage: number;
 }
+export interface EnemyScoreRecord {
+  id: number; maxHp: number; hpLost: number; disposition: 'active' | 'killed' | 'contact';
+}
+export interface ScoreSummary { hpLost: number; maxHp: number; ratio: number; percent: number }
+export interface CardRewardEntitlement { choices: number; picks: number; canSkip: boolean }
+export interface RewardConfig {
+  floor: number; attributeCap: number; baseGold: number; baseAttributes: AdaptationAttributes;
+  cardOffer: CardRewardEntitlement | null;
+}
+export interface RewardOutcome {
+  eligible: boolean; score: ScoreSummary; rewardRatio: number; gold: number;
+  scaledAttributes: AdaptationAttributes; gainedAttributes: AdaptationAttributes; overflowAttributes: AdaptationAttributes;
+  attributesAfter: AdaptationAttributes; cardOffer: CardRewardEntitlement | null;
+}
 export interface EncounterDefinition {
   id: string; name: string; description: string; player: number;
+  rewardAttribute?: keyof AdaptationAttributes;
   units: { kind: string; position: number }[];
 }
 export interface BattleConfig { size: number; maxHp: number; handSize: number; seed: number; character: string }
@@ -131,6 +149,8 @@ export interface BattleState {
   deck: CardInstance[];
   player: PlayerState;
   enemies: EnemyState[];
+  scoring: EnemyScoreRecord[];
+  gold: number; rewardConfig: RewardConfig; reward: RewardOutcome | null;
   hand: BattleCardState[]; draw: BattleCardState[]; discard: BattleCardState[];
   exhaust: BattleCardState[]; executing: BattleCardState[];
   status: 'playing' | 'won' | 'lost'; phase: 'player' | 'enemy' | 'card' | 'events' | 'closing' | 'finished';

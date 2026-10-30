@@ -19,6 +19,8 @@ export const cards: Record<string, CardDefinition> = {
   debugPushSandwich: { name: '双向传递（测试）', art: 'push', kind: '开发用 · 不进入正式牌组', description: '固定局面：#1向右2格，#3向左2格，同时撞向#2。', target: 'none', effects: [{ type: 'pushGroup', pushes: [{ id: 1, direction: 1, amount: 2 }, { id: 3, direction: -1, amount: 2 }] }] },
   debugPushChain: { name: '连锁累加（测试）', art: 'push', kind: '开发用 · 不进入正式牌组', description: '固定局面：#1向右2格，#2向右1格；相邻输入合并后继续传递。', target: 'none', effects: [{ type: 'pushGroup', pushes: [{ id: 1, direction: 1, amount: 2 }, { id: 2, direction: 1, amount: 1 }] }] },
   debugWeather: { name: '天气攻击（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '造成10点基础伤害，享受当前天气对应的适应加成。', target: 'enemy', effects: [{ type: 'damage', amount: 10 }] },
+  debugScoreKill: { name: '精准终结（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '对目标造成10点基础伤害，用于评分与奖励验收。', target: 'enemy', effects: [{ type: 'damage', amount: 10 }] },
+  debugScoreChip: { name: '削弱（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '对目标造成5点基础伤害，用于验证接触消失不补足评分。', target: 'enemy', effects: [{ type: 'damage', amount: 5 }] },
 };
 export const basicStartingCards = ['strike', 'strike', 'step', 'step', 'push'];
 export function getStartingDeck(character: string): string[] {
