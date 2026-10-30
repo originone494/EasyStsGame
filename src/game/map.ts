@@ -13,12 +13,7 @@ function integer(value: number, name: string, min = 0, max = 100) {
 
 export function generateMap(seed: number, config: MapGenerationConfig): MapNode[] {
   integer(seed, '地图种子', 0, 4294967295);
-  integer(config.safeNodesPerFloor, '每层安全节点总数', 2);
-  integer(config.minimumShops, '最少商店数', 1); integer(config.minimumCampfires, '最少火堆数', 1);
-  if (config.minimumShops + config.minimumCampfires > config.safeNodesPerFloor) throw new Error('安全节点不足以满足商店和火堆最低数量。');
-  const weightedKinds = (['shop', 'campfire', 'event'] as const).map(kind => [kind, config.safeNodeWeights[kind]] as const);
-  for (const [, weight] of weightedKinds) integer(weight, '安全节点权重');
-  if (!weightedKinds.some(([, weight]) => weight > 0)) throw new Error('安全节点权重不能全为0。');
+  integer(config.safeNodesPerFloor, '每层随机安全节点总数', 1);
   integer(config.elitesPerFloor, '每层精英数量', 0, Math.min(...floorBattleCounts) - 1);
   for (const floor of [1, 2, 3]) validateRewardConfig({ ...normalRewardConfig('sunAdaptation', floor),
     baseGold: config.eliteBaseGold, baseAttributes: config.eliteBaseAttributes });
@@ -52,12 +47,9 @@ export function generateMap(seed: number, config: MapGenerationConfig): MapNode[
         gaps[gap].push({ id: `f${floor}-${kind}-${++counters[kind]}`, kind, floor, seed: random(), beforeBoss: false });
       }
     };
-    add('shop', config.minimumShops); add('campfire', config.minimumCampfires);
-    for (let i = config.minimumShops + config.minimumCampfires; i < config.safeNodesPerFloor; i++) {
-      let draw = choose(0, weightedKinds.reduce((sum, [, weight]) => sum + weight, 0) - 1);
-      const kind = weightedKinds.find(([, weight]) => { draw -= weight; return draw < 0; })![0];
-      add(kind, 1);
-    }
+    // The fixed Boss camp counts toward the floor-wide one-camp limit.
+    // All remaining random slots must be events, never extra shops or camps.
+    add('shop', 1); add('event', config.safeNodesPerFloor - 1);
     for (const [index, battle] of battles.entries()) {
       const mixed = shuffle(gaps[index], random()); rng = mixed.seed;
       nodes.push(battle, ...mixed.values);

@@ -49,20 +49,21 @@ describe('步骤8：固定战斗骨架与随机安全节点', () => {
     }
   });
 
-  it('每层10／7／5战、另有5随机安全节点和1固定火堆，全局40节点22战', () => {
+  it('每层恰好1火堆、1商店、4事件，共40节点22战', () => {
     const nodes = generateMap(157, mapRules);
     expect(nodes).toHaveLength(40); expect(nodes.filter(isBattleNode)).toHaveLength(22);
     for (const floor of [1, 2, 3]) {
       const list = nodes.filter(node => node.floor === floor), safe = list.filter(node => !isBattleNode(node));
       expect(list.filter(isBattleNode)).toHaveLength(floorBattleCounts[floor - 1]); expect(safe).toHaveLength(6);
       const randomSafe = safe.filter(node => !isBattleNode(node) && !node.beforeBoss);
-      expect(randomSafe).toHaveLength(5); expect(randomSafe.some(node => node.kind === 'shop')).toBe(true);
-      expect(randomSafe.some(node => node.kind === 'campfire')).toBe(true);
+      expect(randomSafe).toHaveLength(5); expect(randomSafe.filter(node => node.kind === 'shop')).toHaveLength(1);
+      expect(randomSafe.filter(node => node.kind === 'event')).toHaveLength(4);
+      expect(safe.filter(node => node.kind === 'campfire')).toHaveLength(1);
       expect(list.at(-1)!.kind).toBe('boss'); expect(list.at(-2)).toMatchObject({ kind: 'campfire', beforeBoss: true });
     }
   });
 
-  it('1000个固定种子均满足数量、ID唯一、编号连续及Boss前相邻关系', () => {
+  it('1000个固定种子的每层都仅有1火堆1商店，数量、ID、编号及Boss旁火堆均有效', () => {
     let seed = 0;
     for (let i = 0; i < 1000; i++, seed = nextRandom(seed)) {
       const nodes = generateMap(seed, mapRules), battles = nodes.filter(isBattleNode);
@@ -70,8 +71,9 @@ describe('步骤8：固定战斗骨架与随机安全节点', () => {
       expect(battles.map(node => node.globalBattleIndex)).toEqual(Array.from({ length: 22 }, (_, index) => index + 1));
       for (const floor of [1, 2, 3]) {
         const list = nodes.filter(node => node.floor === floor), safe = list.filter(node => !isBattleNode(node));
-        expect(safe).toHaveLength(6); expect(safe.filter(node => node.kind === 'campfire').length).toBeGreaterThanOrEqual(2);
-        expect(safe.some(node => node.kind === 'shop')).toBe(true);
+        expect(safe).toHaveLength(6); expect(safe.filter(node => node.kind === 'campfire')).toHaveLength(1);
+        expect(safe.filter(node => node.kind === 'shop')).toHaveLength(1);
+        expect(safe.filter(node => node.kind === 'event')).toHaveLength(4);
         expect(list.at(-2)).toMatchObject({ kind: 'campfire', beforeBoss: true }); expect(list.at(-1)!.kind).toBe('boss');
       }
     }
@@ -99,21 +101,24 @@ describe('步骤8：固定战斗骨架与随机安全节点', () => {
     for (let i = 0; i < nodes.length; i++) if (nodes[i].kind === 'boss') expect(nodes[i - 1]).toMatchObject({ kind: 'campfire', beforeBoss: true });
   });
 
-  it('额外名额仅生成事件时仍保留最低商店与随机火堆', () => {
-    const nodes = generateMap(9, { ...mapRules, safeNodeWeights: { shop: 0, campfire: 0, event: 1 } });
-    for (const floor of [1, 2, 3]) {
-      const safe = nodes.filter(node => node.floor === floor && !isBattleNode(node));
-      expect(safe.filter(node => node.kind === 'event')).toHaveLength(3);
-      expect(safe.filter(node => node.kind === 'campfire')).toHaveLength(2);
-      expect(safe.filter(node => node.kind === 'shop')).toHaveLength(1);
+  it('调整非战斗总量仍仅1商店1火堆，其余全部为事件，最小配置不额外生成事件', () => {
+    for (const count of [1, 2, 5, 8]) {
+      const nodes = generateMap(9, { ...mapRules, safeNodesPerFloor: count });
+      for (const floor of [1, 2, 3]) {
+        const safe = nodes.filter(node => node.floor === floor && !isBattleNode(node));
+        expect(safe).toHaveLength(count + 1);
+        expect(safe.filter(node => node.kind === 'event')).toHaveLength(count - 1);
+        expect(safe.filter(node => node.kind === 'campfire')).toHaveLength(1);
+        expect(safe.filter(node => node.kind === 'shop')).toHaveLength(1);
+      }
     }
   });
 
-  it('拒绝非法种子、最低数量冲突、全零权重、非法精英数及基准', () => {
+  it('拒绝非法种子、无法容纳商店的节点数、非整数／超限配置及非法精英基准', () => {
     expect(() => generateMap(-1, mapRules)).toThrow('种子');
-    expect(() => generateMap(1, { ...mapRules, safeNodesPerFloor: 2, minimumShops: 2 })).toThrow('不足');
-    expect(() => generateMap(1, { ...mapRules, minimumCampfires: 0 })).toThrow('火堆');
-    expect(() => generateMap(1, { ...mapRules, safeNodeWeights: { shop: 0, campfire: 0, event: 0 } })).toThrow('全为0');
+    for (const count of [-1, 0, 1.5, 101, NaN]) {
+      expect(() => generateMap(1, { ...mapRules, safeNodesPerFloor: count })).toThrow('节点');
+    }
     expect(() => generateMap(1, { ...mapRules, elitesPerFloor: 5 })).toThrow('精英');
     expect(() => generateMap(1, { ...mapRules, eliteBaseGold: -1 })).toThrow('非负');
   });

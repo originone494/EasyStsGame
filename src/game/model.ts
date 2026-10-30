@@ -183,8 +183,8 @@ export interface BattleMapNode extends MapNodeBase {
 export interface SafeMapNode extends MapNodeBase { kind: 'shop' | 'campfire' | 'event'; beforeBoss: boolean }
 export type MapNode = BattleMapNode | SafeMapNode;
 export interface MapGenerationConfig {
-  safeNodesPerFloor: number; minimumShops: number; minimumCampfires: number;
-  safeNodeWeights: { shop: number; campfire: number; event: number }; elitesPerFloor: number;
+  // Random-position slots: one shop, the rest events. The sole campfire is extra.
+  safeNodesPerFloor: number; elitesPerFloor: number;
   eliteBaseGold: number; eliteBaseAttributes: AdaptationAttributes;
 }
 export interface RunRewardRecord { nodeId: string; outcome: RewardOutcome }

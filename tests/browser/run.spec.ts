@@ -80,6 +80,9 @@ test('三层均可直接挑战Boss，跳过节点不领奖，第三层直接通�
   await page.goto('/?mode=run&scenario=runRoute&seed=157&debug=events');
   for (const floor of [1, 2, 3]) {
     const before = await record(page);
+    await expect(page.locator('.map-stop.kind-campfire')).toHaveCount(1);
+    await expect(page.locator('.map-stop.kind-shop')).toHaveCount(1);
+    await expect(page.locator('.map-stop.kind-event')).toHaveCount(4);
     await enter(page, `f${floor}-boss`);
     expect((await record(page)).battle.runContext.nodeId).toBe(`f${floor}-boss`);
     await routeCard(page);
