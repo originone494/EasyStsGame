@@ -1,5 +1,6 @@
 import type { BattleState, DamageKind, DamageModifiers, DamageRequest, DamageResult, DamageTerm, UnitRef } from './model';
 import { finishBattle, recordEvent } from './events';
+import { activeAdaptation } from './weather';
 
 interface Fraction { numerator: bigint; denominator: bigint }
 
@@ -30,6 +31,9 @@ export function calculateDamage(base: number, modifiers: DamageModifiers = {}, b
   for (const term of baseTerms) result = add(result, multiply(decimal(term.value), decimal(term.coefficient)));
   for (const flat of modifiers.flat ?? []) result = add(result, decimal(flat));
   for (const multiplier of modifiers.multipliers ?? []) result = multiply(result, decimal(multiplier));
+  // Percentage points form ONE exact factor (1 + points/100), without a
+  // floating addition such as 1 + .14 becoming 1.1400000000000001.
+  for (const percent of modifiers.percentBonuses ?? []) result = multiply(result, add(decimal(1), multiply(decimal(percent), decimal(0.01))));
   if (result.numerator <= 0n) return 0;
   const damage = (result.numerator + result.denominator - 1n) / result.denominator;
   if (damage > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('伤害结果超出可精确表示的整数范围。');
@@ -44,13 +48,18 @@ export function inferDamageKind(s: BattleState): DamageKind {
 const sameTarget = (a: UnitRef, b: UnitRef) => a.kind === b.kind && a.id === b.id;
 
 function applicableModifiers(s: BattleState, request: DamageRequest): DamageModifiers {
-  const flat = [...request.flat ?? []], multipliers = [...request.multipliers ?? []];
+  const flat = [...request.flat ?? []], multipliers = [...request.multipliers ?? []], percentBonuses = [...request.percentBonuses ?? []];
   for (const modifier of s.damageModifiers) {
     if (modifier.kind && modifier.kind !== request.kind) continue;
     if (modifier.target && !sameTarget(modifier.target, request.target)) continue;
     flat.push(...modifier.flat ?? []); multipliers.push(...modifier.multipliers ?? []);
+    percentBonuses.push(...modifier.percentBonuses ?? []);
   }
-  return { flat, multipliers };
+  if (request.kind === 'card') {
+    const { points } = activeAdaptation(s);
+    if (points) percentBonuses.push(points);
+  }
+  return { flat, multipliers, percentBonuses };
 }
 
 interface PreparedDamage { result: DamageResult; unit: { hp: number }; distance: number }
@@ -98,6 +107,7 @@ export function resolveDamageBatch(s: BattleState, requests: readonly DamageRequ
     const result: DamageResult = { batchId: s.nextDamageBatchId, kind: request.kind, target: { ...request.target },
       base: request.base, flat: modifiers.flat!, multipliers: modifiers.multipliers!, resolved,
       baseTerms: structuredClone(request.baseTerms ?? []),
+      percentBonuses: modifiers.percentBonuses!,
       hpBefore: unit.hp, hpAfter, hpLost: unit.hp - hpAfter };
     prepared.push({ result, unit, distance: Math.abs(unit.position - s.player.position) });
   }

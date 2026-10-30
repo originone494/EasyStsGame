@@ -5,7 +5,8 @@ const systemContext: EventContext = { source: { kind: 'system', id: 'battle' }, 
 
 export function recordEvent(s: BattleState, type: EventType,
   data: { target?: EntityRef; value?: number; parentId?: number; actor?: EntityRef;
-    batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct'; push?: PushEventDetail } = {}, legacy?: BattleEvent): GameEvent | undefined {
+    batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct'; push?: PushEventDetail;
+    weatherChange?: GameEvent['weatherChange'] } = {}, legacy?: BattleEvent): GameEvent | undefined {
   if (s.status !== 'playing') return;
   const id = s.nextEventId++;
   const event: GameEvent = {
@@ -18,6 +19,7 @@ export function recordEvent(s: BattleState, type: EventType,
   if (data.damage) event.damage = structuredClone(data.damage);
   if (data.hpLossCause) event.hpLossCause = data.hpLossCause;
   if (data.push) event.push = structuredClone(data.push);
+  if (data.weatherChange) event.weatherChange = { ...data.weatherChange };
   s.eventHistory.push(event);
   s.eventQueue.push(event);
   if (legacy) s.events.push(legacy);

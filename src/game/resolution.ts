@@ -4,15 +4,15 @@ import { finishBattle, playerRef, recordEvent } from './events';
 import { inferDamageKind, resolveDamageBatch } from './damage';
 export function damageEnemy(s: State, id: number, amount: number, options: DamageOptions = {}) {
   return resolveDamageBatch(s, [{ target: { kind: 'enemy', id }, base: amount,
-    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms }]);
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, percentBonuses: options.percentBonuses, baseTerms: options.baseTerms }]);
 }
 export function damageEnemies(s: State, ids: readonly number[], amount: number, options: DamageOptions = {}) {
   return resolveDamageBatch(s, [...new Set(ids)].map(id => ({ target: { kind: 'enemy', id }, base: amount,
-    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms })));
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, percentBonuses: options.percentBonuses, baseTerms: options.baseTerms })));
 }
 export function damagePlayer(s: State, amount: number, options: DamageOptions = {}) {
   return resolveDamageBatch(s, [{ target: playerRef, base: amount,
-    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms }]);
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, percentBonuses: options.percentBonuses, baseTerms: options.baseTerms }]);
 }
 export function losePlayerHp(s: State, amount: number) {
   if (s.status !== 'playing') return;

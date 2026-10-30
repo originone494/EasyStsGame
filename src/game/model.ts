@@ -1,15 +1,23 @@
 // Shared data contracts. This module has no runtime dependencies on content or UI.
 export type InstanceId = number;
+export type WeatherKind = 'sun' | 'rain' | 'wind';
+export interface AdaptationAttributes { sunAdaptation: number; rainAdaptation: number; windAdaptation: number }
+export interface WeatherState {
+  initial: WeatherKind; current: WeatherKind; cycle: WeatherKind[]; turnsPerWeather: number;
+  rng: number; lastUpdatedTurn: number;
+}
+export interface BattleOptions { initialWeather?: WeatherKind; attributes?: Partial<AdaptationAttributes> }
 export type DamageKind = 'card' | 'relic' | 'indirect' | 'contact';
 export type UnitRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number };
 export interface DamageTerm { value: number; coefficient: number }
-export interface DamageModifiers { flat?: number[]; multipliers?: number[] }
+export interface DamageModifiers { flat?: number[]; multipliers?: number[]; percentBonuses?: number[] }
 export interface DamageOptions extends DamageModifiers { kind?: DamageKind; baseTerms?: DamageTerm[] }
 export interface DamageModifier extends DamageModifiers { id: string; kind?: DamageKind; target?: UnitRef }
 export interface DamageRequest extends DamageModifiers { target: UnitRef; base: number; kind: DamageKind; baseTerms?: DamageTerm[] }
 export interface DamageResult {
   batchId: number; kind: DamageKind; target: UnitRef; base: number; flat: number[]; multipliers: number[];
   baseTerms: DamageTerm[];
+  percentBonuses: number[];
   resolved: number; hpLost: number; hpBefore: number; hpAfter: number;
 }
 export type PushDirection = 'away' | 'toward' | 'left' | 'right';
@@ -69,7 +77,7 @@ export interface BattleEvent {
 }
 export type EventType = 'CARD_PLAYED' | 'DAMAGE_RESOLVED' | 'HP_LOST' | 'ENEMY_DIED'
   | 'ENEMY_CONTACT' | 'COLLISION' | 'UNIT_MOVED' | 'CARD_DRAWN' | 'CARD_EXHAUSTED'
-  | 'TURN_STARTED' | 'HEALED';
+  | 'TURN_STARTED' | 'HEALED' | 'WEATHER_CHANGED';
 export type EntityRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number }
   | { kind: 'card' | 'relic' | 'temporary'; id: number; key: string }
   | { kind: 'system'; id: string };
@@ -78,6 +86,7 @@ export interface GameEvent extends EventContext {
   id: number; sequence: number; type: EventType; target: EntityRef | null; value: number; actor: EntityRef | null;
   batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct';
   push?: PushEventDetail;
+  weatherChange?: { from: WeatherKind; to: WeatherKind; turn: number };
 }
 export interface EventTrace {
   kind: 'enqueue' | 'dequeue' | 'snapshot' | 'trigger' | 'skip' | 'cancel' | 'finish';
@@ -90,6 +99,7 @@ export type TriggerCondition = { type: 'always' }
   | { type: 'damageKind'; kind: DamageKind }
   | { type: 'hpLossCause'; cause: 'damage' | 'direct' }
   | { type: 'collisionMode'; mode: PushCollisionMode }
+  | { type: 'weather'; weather: WeatherKind }
   | { type: 'all'; conditions: TriggerCondition[] };
 // Non-target terms are frozen at dequeue. Target terms are read on execution.
 export type TriggerAmount = number | { base?: number; missingHp?: number; eventValue?: number; targetHp?: number; multiplier?: number };
@@ -117,6 +127,7 @@ export type FinishReason = 'player-death' | 'last-contact' | 'last-kill' | 'boss
 export interface BattleState {
   encounter: number; seed: number; rng: number; turn: number; size: number; handSize: number;
   party: CharacterInstance[];
+  weather: WeatherState; attributes: AdaptationAttributes;
   deck: CardInstance[];
   player: PlayerState;
   enemies: EnemyState[];

@@ -10,6 +10,7 @@ import { pileButton, pileBrowser, isPile, type Pile } from './ui/piles';
 import { panels, result } from './ui/panels';
 import { enemyOrder } from './game/turn';
 import { eventInspector } from './ui/eventInspector';
+import { weatherLabels } from './content/weather';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
 const query = new URLSearchParams(location.search);
 const seedValue = Number(query.get('seed') ?? prototype.seed);
@@ -30,6 +31,9 @@ function perform(action:Action) {
   if(e.type==='damage')feedback.push({position,text:`−${e.amount}`,tone:'damage'});
   if(e.type==='heal')feedback.push({position:state.player.position,text:`+${e.amount}`,tone:'healing'});
   if(e.type==='collision')feedback.push({position,text:'碰撞',tone:'collision'});
+ }
+ for(const event of state.eventHistory.slice(previous.eventHistory.length)){
+  if(event.type==='WEATHER_CHANGED'&&event.weatherChange){const label=weatherLabels[event.weatherChange.to];feedback.push({position:state.player.position,text:`${label.icon} ${label.name}`,tone:'weather'});}
  }
  for(const unit of state.enemies){const old=previous.enemies.find(u=>u.id===unit.id);if(old&&old.position!==unit.position)feedback.push({position:unit.position,text:`${unit.position>old.position?'→':'←'} ${Math.abs(unit.position-old.position)}格`,tone:'movement'});}
  if(state.player.position!==previous.player.position)feedback.push({position:state.player.position,text:`${state.player.position>previous.player.position?'→':'←'} 移步`,tone:'movement'});

@@ -5,11 +5,15 @@ import { settle } from './resolution';
 import { recordEvent, withEventContext } from './events';
 import { processEvents } from './eventQueue';
 import { expireListeners } from './listeners';
+import { updateWeatherForTurn } from './weather';
 export function enemyOrder(s: State): number[] { return [...s.enemies].sort((a,b) => Math.abs(a.position-s.player.position)-Math.abs(b.position-s.player.position) || a.id-b.id).map(e => e.id); }
 export function startPlayerTurn(s: State) {
   if (s.status !== 'playing') return;
   s.phase = 'player';
   expireListeners(s);
+  updateWeatherForTurn(s);
+  processEvents(s);
+  if (s.status !== 'playing') return;
   withEventContext(s, { source: { kind: 'system', id: 'turn' }, parentId: null, allowChain: true }, () => recordEvent(s, 'TURN_STARTED', { value: s.turn }));
   processEvents(s);
   if (s.status !== 'playing') return;

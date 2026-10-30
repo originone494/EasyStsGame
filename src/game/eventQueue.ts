@@ -47,7 +47,7 @@ function executeEffects(s: BattleState, event: GameEvent, listenerId: number, ef
       resolveDamageBatch(s, s.enemies.map(enemy => ({ target: { kind: 'enemy', id: enemy.id },
         base: frozen.damageBase!, flat: effect.flat,
         baseTerms: [...frozen.damageTerms!, { value: enemy.hp, coefficient: frozen.targetHp! }],
-        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], kind: inferDamageKind(s) })));
+        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], percentBonuses: effect.percentBonuses, kind: inferDamageKind(s) })));
       continue;
     }
     const target = effect.type === 'damage' || effect.type === 'push' ? selectTarget(s, event, effect.target) : undefined;
@@ -59,7 +59,7 @@ function executeEffects(s: BattleState, event: GameEvent, listenerId: number, ef
     if (effect.type === 'damage') {
       damageEnemy(s, target!.id, frozen.damageBase!, { flat: effect.flat,
         baseTerms: [...frozen.damageTerms!, { value: target!.hp, coefficient: frozen.targetHp! }],
-        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], kind: inferDamageKind(s) });
+        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], percentBonuses: effect.percentBonuses, kind: inferDamageKind(s) });
       continue;
     }
     const amount = Math.max(0, Math.ceil(base * frozen.multiplier!));

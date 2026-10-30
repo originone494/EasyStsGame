@@ -401,3 +401,10 @@ button.deck-pile:hover .deck-card{border-color:#efdaa1;filter:brightness(1.2)}
 .event-inspector{position:fixed;left:12px;top:64px;z-index:100;max-width:calc(100vw - 24px);color:#eee;background:#132321f2;border:1px solid #839782;border-radius:6px;font:13px/1.45 monospace}
 .event-inspector summary{padding:8px 12px;cursor:pointer}
 .event-inspector pre{margin:0;padding:12px;width:min(680px,calc(100vw - 48px));max-height:65svh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.weather-status{position:absolute;left:3%;top:98px;display:flex;align-items:center;gap:11px;padding:8px 12px;max-width:calc(100vw - 30px);border:1px solid #9b9d6c44;background:#0b1b25b8;color:#d8d6b9;pointer-events:none}
+.weather-icon{font:29px/1 monospace;min-width:30px;text-align:center;color:#e0c28a}
+.weather-rain .weather-icon{color:#a4cddd}.weather-wind .weather-icon{color:#b8d5b4}
+.weather-heading{display:flex;gap:16px;align-items:center}.weather-name{font-size:18px;font-weight:600}.weather-countdown{font-size:13px;color:#adb8a1}.weather-bonus{display:block;margin-top:3px;font-size:14px;line-height:1.4;color:#c9d2b7}
+.floating-number.weather{font-size:24px;color:#e0d9ad;text-shadow:2px 2px #253a37}
+.event-inspector{top:180px}
+@media(max-width:800px){.weather-status{left:15px;top:112px;padding:7px 10px;gap:9px}.weather-heading{gap:12px}.weather-icon{font-size:25px}.weather-name{font-size:16px}.weather-bonus{font-size:13px}.weather-countdown{font-size:12px}.event-inspector{top:188px}}

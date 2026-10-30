@@ -29,11 +29,11 @@ npm run preview
 ## 验证
 
 ```sh
-npm test             # 22项规则＋8项模型＋30项事件＋31项伤害＋36项同步击退
+npm test             # 22项规则＋8项模型＋30项事件＋31项伤害＋36项击退＋28项天气
 npm run test:launcher # 12项启动器检查
 npm run build       # 严格 TypeScript 检查及生产构建
 npx playwright install chromium  # 本机首次浏览器验收时使用
-npm run test:browser # 40项浏览器流程（原有23项＋事件5项＋伤害5项＋击退7项）
+npm run test:browser # 51项浏览器流程（原有23项＋事件5项＋伤害5项＋击退7项＋天气11项）
 ```
 
 云环境已有 `/usr/bin/chromium`，无需下载浏览器：
@@ -52,6 +52,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - [步骤2事件执行规格与验收](docs/步骤2_事件执行规格与验收.md)
 - [步骤3伤害执行规格与验收](docs/步骤3_伤害执行规格与验收.md)
 - [步骤4同步击退执行规格与验收](docs/步骤4_同步击退执行规格与验收.md)
+- [步骤5天气与适应执行规格及验收](docs/步骤5_天气与适应执行规格及验收.md)
 - [当前规则确认（晴／雨／风）](docs/当前规则确认.md)
 - [V15.7规则与代码对照表](docs/V15.7规则与代码对照表.md)
 - [规则待定清单](docs/规则待定清单.md)
@@ -67,6 +68,8 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - `src/game/damage.ts`：统一公式、来源／目标修正、同步伤害批次与实际生命损失。
 - `src/game/push.ts`：纯同步位移求解、逐拍整体提交、碰撞排序及位移账本。
 - `src/content/pushScenarios.ts`：七个开发用同步击退局面。
+- `src/content/weather.ts`、`src/game/weather.ts`：天气配置、周期、独立随机流和三项适应属性。
+- `src/content/weatherScenarios.ts`：六个开发用天气局面。
 - `src/content/relics.ts`：开发局面的测试遗物，普通战斗不装配。
 - `src/game/`：独立规则；`src/ui/`：纯展示；`src/main.ts`：输入绑定。
 
@@ -78,4 +81,6 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 
 击退验收入口：`?scenario=pushTogether`（同向累加）、`?scenario=pushSplit`（双侧同步）、`?scenario=pushOpposed`（反向净余）、`?scenario=pushClash`（等量争格）、`?scenario=pushSandwich`（同位置排序）、`?scenario=pushChain`（连续传递）、`?scenario=pushLimits`（双侧边界）。添加 `&debug=events` 查看碰撞类别、发生拍次和守恒账本。反向冲突等可调整执行选择见[步骤4规格](docs/步骤4_同步击退执行规格与验收.md)。
 
-完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1～4的数据模型、事件、伤害和同步击退内核已完成；天气、Boss与完整单局仍按实施方案推进。天气已确认采用晴／雨／风及三项适应，覆盖原策划案的旧昼夜设计。
+天气验收入口：`?scenario=weatherSun`、`?scenario=weatherRain`、`?scenario=weatherWind`（各天气属性增伤），`?scenario=weatherCycle`（连续观察第4／7／10回合切换），`?scenario=weatherMultipliers`（适应与独立倍率），`?scenario=weatherSources`（伤害来源隔离）。添加 `&debug=events` 查看天气、属性及事件。正常入口也显示天气和倒计时，初始三项适应为0；战后属性成长将在评分奖励步骤接入。完整规则见[步骤5规格](docs/步骤5_天气与适应执行规格及验收.md)。
+
+完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1～5的数据模型、事件、伤害、同步击退和天气适应已完成；评分奖励、Boss与完整单局仍按实施方案推进。天气采用用户确认的晴／雨／风及三项适应，覆盖旧昼夜设计。

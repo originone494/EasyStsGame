@@ -21,11 +21,11 @@ export function executeCard(s: State, card: Card, target?: number, direction?: n
     switch (effect.type) {
       case 'damage': for (let i = 0; i < (effect.hits ?? 1); i++) {
         if (s.status !== 'playing' || !s.enemies.some(e => e.id === target)) break;
-        damageEnemy(s, target!, effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers });
+        damageEnemy(s, target!, effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers, percentBonuses: effect.percentBonuses });
       } break;
       case 'damageAll': for (let i = 0; i < (effect.hits ?? 1); i++) {
         if (s.status !== 'playing' || !s.enemies.length) break;
-        damageEnemies(s, s.enemies.map(enemy => enemy.id), effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers });
+        damageEnemies(s, s.enemies.map(enemy => enemy.id), effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers, percentBonuses: effect.percentBonuses });
       } break;
       case 'draw': drawCards(s, effect.amount); break;
       case 'move': movePlayer(s, direction!, effect.amount); break;

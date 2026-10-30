@@ -42,6 +42,7 @@ function matches(s: BattleState, event: GameEvent, condition?: TriggerCondition)
     case 'damageKind': return event.damage?.kind === condition.kind;
     case 'hpLossCause': return event.hpLossCause === condition.cause;
     case 'collisionMode': return event.type === 'COLLISION' && event.push?.mode === condition.mode;
+    case 'weather': return s.weather.current === condition.weather;
     case 'all': return condition.conditions.every(part => matches(s, event, part));
   }
 }
