@@ -1,5 +1,6 @@
 import './style.css';
 import './ui/map.css';
+import './ui/selection.css';
 import { createBattle, createBossBattle, type State } from './game/state';
 import { act, type Action } from './game/actions';
 import { createScenario, scenarios } from './game/scenarios';
@@ -14,9 +15,13 @@ import { eventInspector } from './ui/eventInspector';
 import { weatherLabels } from './content/weather';
 import { continueBattle } from './game/progression';
 import type { RunState } from './game/model';
-import { acknowledgeRunReward, actInRun, canEnterRunNode, createRun, currentNode, enterRunNode, leaveSafeNode } from './game/run';
+import { acknowledgeRunReward, actInRun, canEnterRunNode, chooseRecruit, chooseRecruitCard, chooseRunRewardCard, createRun, currentNode, enterRunNode, leaveSafeNode } from './game/run';
 import { runInspector, runMap, safeNodeScreen } from './ui/map';
-import { createRunScenario } from './game/runScenarios';
+import { createRewardScenario, createRunScenario } from './game/runScenarios';
+import { liveProgression } from './content/progression';
+import { installDevelopmentRewards, removeDevelopmentRewards } from './content/developmentRewards';
+import { recruitmentScreen } from './ui/selection';
+import type { ProgressionContent } from './game/selection';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
 const query = new URLSearchParams(location.search);
 const seedValue = Number(query.get('seed') ?? prototype.seed);
@@ -24,12 +29,13 @@ const seed = Number.isInteger(seedValue) && seedValue >= 0 && seedValue <= 42949
 const encounterValue = Number(query.get('encounter') ?? 0);
 const encounter = Number.isInteger(encounterValue) && encounterValue >= 0 && encounterValue < encounters.length ? encounterValue : 0;
 const scenario = query.get('scenario');
+let progressionContent: ProgressionContent | null = query.get('mode')==='run'&&scenario==='rewardRecruitment'?installDevelopmentRewards():liveProgression;
 const floorValue = Number(query.get('floor') ?? 1);
 const floor = Number.isInteger(floorValue) && floorValue >= 1 && floorValue <= 3 ? floorValue : 1;
 let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(scenario, seed)
  : query.get('battle')==='boss'?createBossBattle(floor,seed):createBattle(encounter, seed);
 let openingState = structuredClone(state);
-let run: RunState | null = query.get('mode')==='run'?(scenario==='runRoute'?createRunScenario(seed):createRun(seed)):null;
+let run: RunState | null = query.get('mode')==='run'?(scenario==='rewardRecruitment'?createRewardScenario(seed,progressionContent!):scenario==='runRoute'?createRunScenario(seed):createRun(seed,undefined,progressionContent)):null;
 let showingMap=Boolean(run);
 let interaction: CardInteraction | undefined;
 let viewingPile: Pile | undefined;
@@ -41,20 +47,22 @@ function reset(next=false) {
  feedback=[];render();
 }
 function newRun() {
+ removeDevelopmentRewards();progressionContent=liveProgression;
  for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
  const search=query.toString();history.replaceState(null,'',`${location.pathname}${search?'?'+search:''}`);
  viewingPile=undefined;feedback=[];
- if(run){run=createRun(seed);showingMap=true;render();return;}
+ if(run){run=createRun(seed,undefined,progressionContent);showingMap=true;render();return;}
  state=createBattle(0,seed);openingState=structuredClone(state);render();
 }
 function startRun() {
+ removeDevelopmentRewards();progressionContent=liveProgression;
  for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
  query.set('mode','run');history.replaceState(null,'',`${location.pathname}?${query.toString()}`);
- run=createRun(seed);showingMap=true;viewingPile=undefined;feedback=[];render();
+ run=createRun(seed,undefined,progressionContent);showingMap=true;viewingPile=undefined;feedback=[];render();
 }
 function perform(action:Action) {
  const previous:State=state;
- if(run){run=actInRun(run,action);state=run.battle!;}else state=act(state,action);
+ if(run){run=actInRun(run,action,progressionContent);state=run.battle!;}else state=act(state,action);
  feedback=[];
  for(const e of state.events.slice(previous.events.length)){
   const position=e.target===undefined?previous.player.position:(previous.enemies.find(u=>u.id===e.target)?.position??state.enemies.find(u=>u.id===e.target)?.position??0);
@@ -71,6 +79,11 @@ function perform(action:Action) {
 }
 function render() {
  interaction?.cancel();
+ if(run?.runStatus==='recruitment'&&!showingMap&&progressionContent){
+  app.innerHTML=recruitmentScreen(run,progressionContent);
+  if(query.get('debug')==='events')app.insertAdjacentHTML('beforeend',runInspector(run));
+  return;
+ }
  if(run&&(showingMap||run.runStatus==='map'||run.runStatus==='safe')){
   const scroll=app.querySelector('.run-screen')?.scrollTop??0;
   const oldRoute=app.querySelector<HTMLElement>('.map-scroll');
@@ -115,9 +128,15 @@ app.addEventListener('click',event=>{
  case 'exit-run':run=null;query.delete('mode');showingMap=false;newRun();return;
  case 'run-map':if(run){showingMap=true;viewingPile=undefined;render();}return;
  case 'run-return':if(run){showingMap=false;render();}return;
- case 'run-enter':if(run&&button.dataset.nodeId&&canEnterRunNode(run,button.dataset.nodeId)){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
+ case 'run-enter':if(run&&button.dataset.nodeId&&canEnterRunNode(run,button.dataset.nodeId)){run=enterRunNode(run,button.dataset.nodeId,progressionContent);showingMap=false;feedback=[];render();}return;
  case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;render();}return;
- case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;feedback=[];render();}return;
+ case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id&&run.pendingReward?.cardSelection?.status!=='pending'){run=acknowledgeRunReward(run,button.dataset.nodeId,progressionContent);showingMap=run.runStatus==='map';feedback=[];render();}return;
+ case 'reward-pick':case 'reward-skip':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id&&run.pendingReward?.cardSelection?.status==='pending'){
+  run=chooseRunRewardCard(run,button.dataset.nodeId,button.dataset.action==='reward-skip'?null:button.dataset.cardKey!,progressionContent);render();}return;
+ case 'recruit-pick':if(run?.runStatus==='recruitment'&&button.dataset.nodeId===currentNode(run).id&&!run.pendingRecruitment?.characterKey){
+  run=chooseRecruit(run,button.dataset.nodeId,button.dataset.characterKey!,progressionContent);render();}return;
+ case 'recruit-card':if(run?.runStatus==='recruitment'&&button.dataset.nodeId===currentNode(run).id&&Number(button.dataset.round)===run.pendingRecruitment?.round){
+  run=chooseRecruitCard(run,button.dataset.nodeId,Number(button.dataset.round),button.dataset.cardKey!,progressionContent);showingMap=run.runStatus==='map';render();}return;
  case 'close-pile':closePile();return;
  case 'restart':if(state.boss)newRun();else reset();return;case 'next':reset(true);return;
  case 'new-run':newRun();return;

@@ -1,5 +1,6 @@
 // Shared data contracts. This module has no runtime dependencies on content or UI.
 export type InstanceId = number;
+export type Rarity = 'common' | 'uncommon' | 'rare';
 export type WeatherKind = 'sun' | 'rain' | 'wind';
 export interface AdaptationAttributes { sunAdaptation: number; rainAdaptation: number; windAdaptation: number }
 export interface WeatherState {
@@ -52,6 +53,10 @@ export interface CardDefinition {
   target: 'enemy' | 'direction' | 'none';
   effects: Effect[];
   exhaust?: boolean;
+  source?: 'basic' | 'character' | 'colorless' | 'development';
+  character?: string;
+  rarity?: Rarity;
+  maxOwned?: number;
 }
 
 // Permanent ownership. Duplicate names have distinct IDs and upgrade flags.
@@ -61,7 +66,10 @@ export interface CardInstance { id: InstanceId; key: string; upgraded: boolean }
 export interface BattleCardState { id: InstanceId; key: string; temporary?: Record<string, number> }
 export type CardZone = 'hand' | 'draw' | 'discard' | 'exhaust' | 'executing';
 
-export interface CharacterDefinition { name: string; startingCards: string[] }
+export interface CharacterDefinition {
+  name: string; startingCards: string[];
+  description?: string; cardPool?: string[]; relicKey?: string; recruitable?: boolean;
+}
 // Characters share player health and position; no per-character health/position.
 export interface CharacterInstance { id: InstanceId; key: string }
 export interface PlayerState { position: number; hp: number; maxHp: number }
@@ -146,6 +154,10 @@ interface ListenerBase {
 }
 export type ListenerDefinition = ListenerBase & ({ kind: 'relic' }
   | { kind: 'temporary'; snapshot: 'eventStart' | 'execution' });
+export interface RelicDefinition {
+  rarity: Rarity; description: string; character?: string;
+  listener: ListenerDefinition;
+}
 export interface ListenerState {
   id: number; order: number; definition: ListenerDefinition; active: boolean;
   registeredTurn: number; totalTriggers: number; turnTriggers: number; lastTriggerTurn: number;
@@ -187,14 +199,27 @@ export interface MapGenerationConfig {
   safeNodesPerFloor: number; elitesPerFloor: number;
   eliteBaseGold: number; eliteBaseAttributes: AdaptationAttributes;
 }
-export interface RunRewardRecord { nodeId: string; outcome: RewardOutcome }
+export interface RewardCardSelection {
+  candidates: string[]; status: 'pending' | 'picked' | 'skipped' | 'empty'; picked: string | null;
+}
+export interface RunRewardRecord {
+  nodeId: string; outcome: RewardOutcome;
+  cardSelection?: RewardCardSelection; relicKey?: string | null;
+}
+export interface RecruitmentState {
+  nodeId: string; candidates: string[]; characterKey: string | null;
+  round: number; cardCandidates: string[]; pickedCards: string[];
+}
+export interface RecruitmentRecord { nodeId: string; characterKey: string; pickedCards: string[] }
 export interface RunState {
   // currentNodeIndex identifies the active node (or a fallback on the map),
   // not a traversal prerequisite. Any unfinished node on currentFloor is legal.
   runId: string; seed: number; scenario: string; currentFloor: number; currentNodeIndex: number;
+  progressionId: string | null; nextCardId: number;
   party: CharacterInstance[]; currentHP: number; maxHP: number; deck: CardInstance[];
   relics: ListenerDefinition[]; gold: number; attributes: AdaptationAttributes;
   mapNodes: MapNode[]; completedNodes: string[]; paidRemoveCount: number; paidUpgradeCount: number;
   pendingReward: RunRewardRecord | null; rewardHistory: RunRewardRecord[];
-  runStatus: 'map' | 'battle' | 'safe' | 'reward' | 'lost' | 'won'; battle: BattleState | null;
+  pendingRecruitment: RecruitmentState | null; recruitmentHistory: RecruitmentRecord[];
+  runStatus: 'map' | 'battle' | 'safe' | 'reward' | 'recruitment' | 'lost' | 'won'; battle: BattleState | null;
 }

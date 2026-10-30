@@ -23,9 +23,9 @@ function overview(run: RunState) {
   return `<div class="run-overview"><span>生命 <b>${run.currentHP} / ${run.maxHP}</b></span><span>金币 <b>${run.gold}</b></span><span>牌组 <b>${run.deck.length}</b></span><span>遗物 <b>${run.relics.length}</b></span><span>队伍 ${run.party.map(member => characters[member.key]?.name ?? member.key).join('、')}</span><div class="run-attributes">${Object.values(weatherLabels).map(label => `<span>${label.icon} ${label.name}适应 <b>${run.attributes[label.attribute]}</b></span>`).join('')}</div></div>`;
 }
 
-function header(run: RunState, title?: string) {
+export function runHeader(run: RunState, title?: string) {
   const back = title === undefined && run.runStatus !== 'map'
-    ? `<button data-action="run-return">${run.runStatus==='battle'?'返回战斗':run.runStatus==='safe'?'返回当前节点':'返回结算'}</button>` : '';
+    ? `<button data-action="run-return">${run.runStatus==='battle'?'返回战斗':run.runStatus==='safe'?'返回当前节点':run.runStatus==='recruitment'?'返回招募':'返回结算'}</button>` : '';
   return `<header class="run-header"><div class="run-heading"><span class="run-kicker">简单尖塔</span>${title?`<h1>${title}</h1>`:''}</div>${overview(run)}<nav>${back}<button data-action="new-run">重新开局</button><button data-action="exit-run">返回试战</button></nav></header>`;
 }
 
@@ -39,7 +39,7 @@ export function runMap(run: RunState): string {
   const placed = [...nodes.filter(node => node.kind === 'boss' || ('beforeBoss' in node && node.beforeBoss)), ...ordinary];
   const layoutSeed = (run.seed ^ Math.imul(floor, 0x6d6170)) >>> 0;
   const wide = scatterMapNodes(placed, layoutSeed, 4), medium = scatterMapNodes(placed, layoutSeed, 3), narrow = scatterMapNodes(placed, layoutSeed, 2);
-  return `<section class="run-screen map-screen" aria-label="自由探索地图">${header(run)}<div class="map-layout"><div class="map-scroll" data-map-floor-view="${floor}" tabindex="0" aria-label="楼层地图"><div class="map-parchment">${mapLandscape()}<ul class="map-field" style="--map-height:${wide.minHeight}px;--map-height-medium:${medium.minHeight}px;--map-height-narrow:${narrow.minHeight}px" aria-label="第${floor}层节点">${placed.map((node, index) => {
+  return `<section class="run-screen map-screen" aria-label="自由探索地图">${runHeader(run)}<div class="map-layout"><div class="map-scroll" data-map-floor-view="${floor}" tabindex="0" aria-label="楼层地图"><div class="map-parchment">${mapLandscape()}<ul class="map-field" style="--map-height:${wide.minHeight}px;--map-height-medium:${medium.minHeight}px;--map-height-narrow:${narrow.minHeight}px" aria-label="第${floor}层节点">${placed.map((node, index) => {
     const complete = run.completedNodes.includes(node.id), active = run.runStatus !== 'map' && node.id === currentNode(run).id;
     const available = canEnterRunNode(run, node.id);
     const attribute = isBattleNode(node) && node.kind !== 'boss' ? Object.values(weatherLabels).filter(label => node.rewardConfig.baseAttributes[label.attribute] > 0)
@@ -53,7 +53,7 @@ export function safeNodeScreen(run: RunState): string {
   const node = currentNode(run);
   const copy = { shop: '商人暂未带来可以出售的货物。', campfire: '篝火安静地燃烧着。', event: '林间风声渐歇，旅途没有发生额外变化。' };
   const text = isBattleNode(node) ? '' : copy[node.kind];
-  return `<section class="run-screen safe-screen" aria-label="安全节点">${header(run, node.kind==='event'?'林间空地':nodeLabels[node.kind])}<div class="safe-scene"><span class="safe-icon">${nodeIcons[node.kind]}</span><h2>${node.kind==='event'?'林间空地':nodeLabels[node.kind]}</h2><p>${text}</p><div><button data-action="run-map">查看地图</button><button class="primary" data-action="safe-leave" data-node-id="${node.id}">继续前进</button></div></div></section>`;
+  return `<section class="run-screen safe-screen" aria-label="安全节点">${runHeader(run, node.kind==='event'?'林间空地':nodeLabels[node.kind])}<div class="safe-scene"><span class="safe-icon">${nodeIcons[node.kind]}</span><h2>${node.kind==='event'?'林间空地':nodeLabels[node.kind]}</h2><p>${text}</p><div><button data-action="run-map">查看地图</button><button class="primary" data-action="safe-leave" data-node-id="${node.id}">继续前进</button></div></div></section>`;
 }
 
 export function runInspector(run: RunState) {
