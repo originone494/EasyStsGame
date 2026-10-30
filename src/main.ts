@@ -30,7 +30,7 @@ let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(
  : query.get('battle')==='boss'?createBossBattle(floor,seed):createBattle(encounter, seed);
 let openingState = structuredClone(state);
 let run: RunState | null = query.get('mode')==='run'?(scenario==='runRoute'?createRunScenario(seed):createRun(seed)):null;
-let showingMap=Boolean(run), mapFloor=1, selectedNodeId=run?currentNode(run).id:undefined;
+let showingMap=Boolean(run);
 let interaction: CardInteraction | undefined;
 let viewingPile: Pile | undefined;
 let feedback: {position:number;text:string;tone:string}[]=[];
@@ -44,13 +44,13 @@ function newRun() {
  for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
  const search=query.toString();history.replaceState(null,'',`${location.pathname}${search?'?'+search:''}`);
  viewingPile=undefined;feedback=[];
- if(run){run=createRun(seed);showingMap=true;mapFloor=1;selectedNodeId=currentNode(run).id;render();return;}
+ if(run){run=createRun(seed);showingMap=true;render();return;}
  state=createBattle(0,seed);openingState=structuredClone(state);render();
 }
 function startRun() {
  for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
  query.set('mode','run');history.replaceState(null,'',`${location.pathname}?${query.toString()}`);
- run=createRun(seed);showingMap=true;mapFloor=1;selectedNodeId=currentNode(run).id;viewingPile=undefined;feedback=[];render();
+ run=createRun(seed);showingMap=true;viewingPile=undefined;feedback=[];render();
 }
 function perform(action:Action) {
  const previous:State=state;
@@ -75,7 +75,7 @@ function render() {
   const scroll=app.querySelector('.run-screen')?.scrollTop??0;
   const oldRoute=app.querySelector<HTMLElement>('.map-scroll');
   const routeScroll=oldRoute?.scrollTop, routeFloor=oldRoute?.dataset.mapFloorView;
-  app.innerHTML=run.runStatus==='safe'&&!showingMap?safeNodeScreen(run):runMap(run,mapFloor,selectedNodeId);
+  app.innerHTML=run.runStatus==='safe'&&!showingMap?safeNodeScreen(run):runMap(run);
   if(query.get('debug')==='events')app.insertAdjacentHTML('beforeend',runInspector(run));
   const screen=app.querySelector('.run-screen');if(screen)screen.scrollTop=scroll;
   const route=app.querySelector<HTMLElement>('.map-scroll');
@@ -116,19 +116,16 @@ app.addEventListener('click',event=>{
   return;
  }
  const button=(event.target as HTMLElement).closest<HTMLButtonElement>('button'); if(!button||button.disabled)return;
- if(run&&button.dataset.mapFloor){const value=Number(button.dataset.mapFloor);if([1,2,3].includes(value)){mapFloor=value;selectedNodeId=undefined;render();focusMapNode();}return;}
- if(run&&button.dataset.mapNode){selectedNodeId=button.dataset.mapNode;render();app.querySelector('.node-detail')?.scrollTo(0,0);return;}
  const pile=button.dataset.pile??button.dataset.viewPile;
  if(isPile(pile)&&state.status==='playing'){viewingPile=pile;render();return;}
  switch(button.dataset.action){
  case 'start-run':startRun();return;
  case 'exit-run':run=null;query.delete('mode');showingMap=false;newRun();return;
- case 'run-map':if(run){showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;viewingPile=undefined;render();}return;
+ case 'run-map':if(run){showingMap=true;viewingPile=undefined;render();}return;
  case 'run-return':if(run){showingMap=false;render();}return;
- case 'map-current':if(run){mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();focusMapNode();}return;
  case 'run-enter':if(run?.runStatus==='map'&&button.dataset.nodeId===currentNode(run).id){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
- case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();}return;
- case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;feedback=[];render();}return;
+ case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;render();}return;
+ case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;feedback=[];render();}return;
  case 'close-pile':closePile();return;
  case 'restart':if(state.boss)newRun();else reset();return;case 'next':reset(true);return;
  case 'new-run':newRun();return;

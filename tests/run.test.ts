@@ -193,10 +193,10 @@ describe('步骤8：单局资产、合法推进与终点', () => {
     expect(result(run.battle!, run)).toContain('通关成功'); expect(() => enterRunNode(run, currentNode(run).id)).toThrow('当前');
   });
 
-  it('查看未来或已完成楼层不改变地图、资产、当前节点或战斗随机数', () => {
+  it('查看地图不改变资产、当前节点或战斗随机数', () => {
     const run = enterRunNode(createRun(157), 'f1-b1'), before = structuredClone(run);
-    for (const floor of [1, 3, 2, 1]) runMap(run, floor);
-    expect(run).toEqual(before); expect(runMap(run, 3)).toContain('返回战斗');
+    runMap(run);
+    expect(run).toEqual(before); expect(runMap(run)).toContain('返回战斗');
   });
 
   it('拒绝外来战斗上下文，单局战斗不能通过旧继续接口脱离地图', () => {

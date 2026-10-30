@@ -4,31 +4,28 @@ async function record(page: Page) { return JSON.parse((await page.locator('.run-
 async function enter(page: Page) { await page.locator('[data-action="run-enter"]').click(); }
 async function routeCard(page: Page) { await page.locator('.hand .card-debugRoute').click(); await page.keyboard.press('Enter'); }
 
-test('原战斗可开始冒险，地图预览未来楼层不允许跳关且不改变状态', async ({ page }) => {
+test('原战斗可开始冒险，地图精简后点击当前节点进入，未来节点不能跳关', async ({ page }) => {
   await page.goto('/?seed=157&debug=events');
   await page.getByRole('button', { name: '开始冒险' }).click();
   await expect(page.locator('.run-screen')).toHaveAttribute('aria-label', '线性地图');
+  await expect(page.locator('.map-screen h1, .floor-tabs, .map-direction, .node-detail, .map-legend')).toHaveCount(0);
   const before = await record(page); expect(before.mapNodes).toHaveLength(40); expect(before.deck).toHaveLength(7);
-  await page.locator('[data-map-floor="3"]').click();
-  await expect(page.locator('.map-node')).toHaveCount(11);
-  await expect(page.locator('.node-lock')).toHaveText('尚未到达此节点');
-  await expect(page.locator('[data-action="run-enter"]')).toHaveCount(0);
-  await page.locator('[data-map-node="f3-boss"]').click();
-  await expect(page.locator('.node-detail')).toContainText('成功即通关');
+  await expect(page.locator('.map-node')).toHaveCount(16);
+  const future = page.locator('[data-map-node="f1-boss"]');
+  await expect(future).toHaveAttribute('aria-disabled', 'true');
+  await future.click({ force: true });
   expect(await record(page)).toEqual(before);
-  await page.getByRole('button', { name: '回到当前节点' }).click();
   await expect(page.locator('.map-node[aria-current="step"]')).toHaveAttribute('data-map-node', 'f1-b1');
   await enter(page); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
   await expect(page.getByRole('button', { name: '重新开始', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '切换测试战斗' })).toHaveCount(0);
 });
 
-test('战斗中查看地图与未来节点再返回，不改变牌区、生命或随机流', async ({ page }) => {
+test('战斗中查看地图并返回，不改变牌区、生命或随机流', async ({ page }) => {
   await page.goto('/?mode=run&seed=157&debug=events'); await enter(page);
   const before = await record(page);
   await page.getByRole('button', { name: '查看地图' }).click();
-  await page.locator('[data-map-floor="2"]').click();
-  await page.locator('[data-map-node="f2-boss"]').click();
+  await page.locator('[data-map-node="f1-boss"]').click({ force: true });
   await expect(page.getByRole('button', { name: '返回战斗' })).toBeVisible();
   expect(await record(page)).toEqual(before);
   await page.getByRole('button', { name: '返回战斗' }).click();
@@ -46,9 +43,10 @@ test('完成首战后确认结果只推进一次，已完成节点只能查看',
   await page.getByRole('button', { name: '返回地图' }).click();
   const after = await record(page); expect(after.gold).toBe(20); expect(after.currentNodeIndex).toBe(1);
   expect(after.rewardHistory).toHaveLength(1);
-  await page.locator('[data-map-node="f1-b1"]').click();
-  await expect(page.locator('.node-lock')).toHaveText('此节点已完成');
-  await expect(page.locator('[data-action="run-enter"]')).toHaveCount(0); expect(await record(page)).toEqual(after);
+  await page.locator('[data-map-node="f1-b1"]').click({ force: true });
+  await expect(page.locator('[data-map-node="f1-b1"]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('[data-map-node="f1-b1"]')).not.toHaveAttribute('data-action', 'run-enter');
+  expect(await record(page)).toEqual(after);
 });
 
 test('普通单局战斗失败结束本局，重新开局清空资产并恢复七张正式牌组', async ({ page }) => {
@@ -122,18 +120,17 @@ test('从独立测试局面开始冒险不会携带调试卡或已有测试属�
 });
 
 for (const [width, height] of [[640, 720], [800, 600], [1440, 1000]]) {
-  test(`${width}×${height}地图可滚动查看全部节点，当前入口与详情均可操作`, async ({ page }) => {
+  test(`${width}×${height}地图铺满可用宽度，可滚动并直接进入当前节点`, async ({ page }) => {
     await page.setViewportSize({ width, height }); await page.goto('/?mode=run&seed=157');
     await expect(page.locator('.run-header')).toBeInViewport({ ratio: 1 });
-    await expect(page.locator('.floor-tabs')).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('.floor-tabs, .node-detail')).toHaveCount(0);
     await page.locator('[data-map-node="f1-boss"]').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-map-node="f1-boss"]')).toBeInViewport({ ratio: 1 });
-    await page.locator('[data-map-node="f1-boss"]').click();
-    await page.locator('.node-detail').scrollIntoViewIfNeeded();
-    await expect(page.locator('.node-lock')).toHaveText('尚未到达此节点');
-    await page.getByRole('button', { name: '回到当前节点' }).click();
+    await page.locator('[data-map-node="f1-boss"]').click({ force: true });
     await page.locator('[data-action="run-enter"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `test-results/run-map-${width}.png`, animations: 'disabled' });
+    const route = (await page.locator('.map-scroll').boundingBox())!;
+    expect(route.width).toBeGreaterThan(width * .9);
     const horizontal = await page.locator('.run-screen').evaluate(element => element.scrollWidth - element.clientWidth);
     expect(horizontal).toBeLessThanOrEqual(1);
     await enter(page); await expect(page.getByRole('button', { name: '结束回合 →' })).toBeVisible();
