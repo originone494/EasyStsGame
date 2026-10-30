@@ -5,6 +5,7 @@ import { damageEnemy, healPlayer, losePlayerHp, settle } from './resolution';
 import { drawCards } from './cards';
 import { pushEnemy } from './movement';
 import { nextRandom } from './random';
+import { inferDamageKind, resolveDamageBatch } from './damage';
 
 function selectTarget(s: BattleState, event: GameEvent, target: TriggerTarget): EnemyState | undefined {
   if (target === 'eventTarget') return event.target?.kind === 'enemy' ? s.enemies.find(enemy => enemy.id === event.target!.id) : undefined;
@@ -30,14 +31,28 @@ function executeEffects(s: BattleState, event: GameEvent, listenerId: number, ef
       setListenerActive(s, effect.listenerId === 'self' ? listenerId : effect.listenerId, effect.active);
       continue;
     }
+    if (effect.type === 'damageAll') {
+      // Build all target-dependent bases against the same pre-batch state.
+      resolveDamageBatch(s, s.enemies.map(enemy => ({ target: { kind: 'enemy', id: enemy.id },
+        base: frozen.damageBase!, flat: effect.flat,
+        baseTerms: [...frozen.damageTerms!, { value: enemy.hp, coefficient: frozen.targetHp! }],
+        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], kind: inferDamageKind(s) })));
+      continue;
+    }
     const target = effect.type === 'damage' || effect.type === 'push' ? selectTarget(s, event, effect.target) : undefined;
     if ((effect.type === 'damage' || effect.type === 'push') && !target) {
       s.eventTrace.push({ kind: 'skip', eventId: event.id, listenerId, message: '没有合法目标；继续独立效果' });
       continue;
     }
-    const amount = Math.max(0, Math.ceil((frozen.base! + frozen.targetHp! * (target?.hp ?? 0)) * frozen.multiplier!));
+    const base = frozen.base! + frozen.targetHp! * (target?.hp ?? 0);
+    if (effect.type === 'damage') {
+      damageEnemy(s, target!.id, frozen.damageBase!, { flat: effect.flat,
+        baseTerms: [...frozen.damageTerms!, { value: target!.hp, coefficient: frozen.targetHp! }],
+        multipliers: [...effect.multipliers ?? [], frozen.multiplier!], kind: inferDamageKind(s) });
+      continue;
+    }
+    const amount = Math.max(0, Math.ceil(base * frozen.multiplier!));
     switch (effect.type) {
-      case 'damage': damageEnemy(s, target!.id, amount); break;
       case 'push': pushEnemy(s, target!.id, amount); break;
       case 'heal': healPlayer(s, amount); break;
       case 'draw': drawCards(s, amount); break;

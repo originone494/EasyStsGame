@@ -22,6 +22,7 @@ export function createBattle(encounter = 0, seed = prototype.seed,
     hand: [], draw: deck.values, discard: [], exhaust: [], executing: [],
     lastKillPending: false, finishReason: null, eventQueue: [], eventHistory: [], eventTrace: [],
     eventContext: null, nextEventId: 1, processingEvents: false, listeners: [], nextListenerId: 1, nextListenerOrder: 1,
+    damageModifiers: [], nextDamageBatchId: 1,
     status: 'playing', phase: 'player', log: [`战斗开始。回合 1，补牌至 ${prototype.handSize} 张。`], events: [], notice: '', scenario: '' };
   for (const listener of listeners) registerListener(s, listener);
   startPlayerTurn(s);

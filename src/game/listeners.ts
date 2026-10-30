@@ -1,4 +1,4 @@
-import type { BattleState, GameEvent, ListenerDefinition, ListenerState, TriggerAmount, TriggerCondition, TriggerEffect } from './model';
+import type { BattleState, DamageTerm, GameEvent, ListenerDefinition, ListenerState, TriggerAmount, TriggerCondition, TriggerEffect } from './model';
 
 export function registerListener(s: BattleState, definition: ListenerDefinition): number {
   if (definition.kind === 'temporary' && definition.snapshot !== 'eventStart' && definition.snapshot !== 'execution') {
@@ -39,6 +39,8 @@ function matches(s: BattleState, event: GameEvent, condition?: TriggerCondition)
     case 'eventValueAtLeast': return event.value >= condition.value;
     case 'sourceKind': return event.source.kind === condition.kind;
     case 'targetKind': return event.target?.kind === condition.kind;
+    case 'damageKind': return event.damage?.kind === condition.kind;
+    case 'hpLossCause': return event.hpLossCause === condition.cause;
     case 'all': return condition.conditions.every(part => matches(s, event, part));
   }
 }
@@ -51,12 +53,17 @@ export function eligible(s: BattleState, event: GameEvent, listener: ListenerSta
   return matches(s, event, d.condition);
 }
 
-export interface FrozenEffect { effect: TriggerEffect; base?: number; targetHp?: number; multiplier?: number }
+export interface FrozenEffect { effect: TriggerEffect; base?: number; targetHp?: number; multiplier?: number; damageBase?: number; damageTerms?: DamageTerm[] }
 export function freezeAmount(s: BattleState, event: GameEvent, amount: TriggerAmount) {
-  if (typeof amount === 'number') return { base: amount, targetHp: 0, multiplier: 1 };
+  if (typeof amount === 'number') return { base: amount, targetHp: 0, multiplier: 1, damageBase: amount, damageTerms: [] };
+  const damageTerms = [
+    { value: s.player.maxHp - s.player.hp, coefficient: amount.missingHp ?? 0 },
+    { value: event.value, coefficient: amount.eventValue ?? 0 },
+  ].filter(term => term.coefficient !== 0);
   return {
     base: (amount.base ?? 0) + (amount.missingHp ?? 0) * (s.player.maxHp - s.player.hp) + (amount.eventValue ?? 0) * event.value,
     targetHp: amount.targetHp ?? 0, multiplier: amount.multiplier ?? 1,
+    damageBase: amount.base ?? 0, damageTerms,
   };
 }
 export function freezeEffects(s: BattleState, event: GameEvent, definition: ListenerDefinition): FrozenEffect[] {

@@ -29,11 +29,11 @@ npm run preview
 ## 验证
 
 ```sh
-npm test             # 22项规则＋8项数据模型＋30项事件与回放检查
+npm test             # 22项规则＋8项模型＋30项事件＋31项伤害与批次检查
 npm run test:launcher # 12项启动器检查
 npm run build       # 严格 TypeScript 检查及生产构建
 npx playwright install chromium  # 本机首次浏览器验收时使用
-npm run test:browser # 28项浏览器流程（原有23项＋事件局面5项）
+npm run test:browser # 33项浏览器流程（23项原有＋5项事件＋5项伤害）
 ```
 
 云环境已有 `/usr/bin/chromium`，无需下载浏览器：
@@ -50,6 +50,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - [V15.7 后续开发实施方案（上传原文）](docs/简单尖塔_V15.7_后续开发实施方案.md)
 - [步骤1实施与验收](docs/步骤1_实施与验收.md)
 - [步骤2事件执行规格与验收](docs/步骤2_事件执行规格与验收.md)
+- [步骤3伤害执行规格与验收](docs/步骤3_伤害执行规格与验收.md)
 - [当前规则确认（晴／雨／风）](docs/当前规则确认.md)
 - [V15.7规则与代码对照表](docs/V15.7规则与代码对照表.md)
 - [规则待定清单](docs/规则待定清单.md)
@@ -62,6 +63,7 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 - `src/content/characters.ts`：临时角色及其两张初始牌。
 - `src/game/model.ts`、`deck.ts`：统一数据类型、永久卡牌实例及战斗引用。
 - `src/game/events.ts`、`eventQueue.ts`、`listeners.ts`：事件入队、FIFO派发、登记顺序、监听生命周期、快照与触发。
+- `src/game/damage.ts`：统一公式、来源／目标修正、同步伤害批次与实际生命损失。
 - `src/content/relics.ts`：开发局面的测试遗物，普通战斗不装配。
 - `src/game/`：独立规则；`src/ui/`：纯展示；`src/main.ts`：输入绑定。
 
@@ -69,4 +71,6 @@ Playwright 自动启动并关闭自己的 Vite 服务；运行前确保 5173 端
 
 事件验收入口：`?scenario=events`（最后击杀遗物连锁）、`?scenario=snapshots`（资格与数值快照）、`?scenario=eventLethal`（代价致死）、`?scenario=eventTarget`（目标失效与独立治疗）。添加 `&debug=events` 可展开查看完整事件、队列及触发日志。用法与预期见[步骤2执行规格](docs/步骤2_事件执行规格与验收.md)。
 
-完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1数据模型与步骤2事件内核已完成；统一伤害、群体动作、天气、Boss与完整单局仍按实施方案推进。天气已确认采用晴／雨／风及三项适应，覆盖原策划案的旧昼夜设计。
+伤害验收入口：`?scenario=damageFormula`（独立倍率）、`?scenario=damageMulti`（分段取整）、`?scenario=damageWave`（群体同步击杀）、`?scenario=damagePartial`（群体部分击杀）、`?scenario=damageKinds`（来源修正隔离）。添加 `&debug=events` 查看完整公式、伤害类别、实际扣血及批次。预期结果与暂定交叉事件顺序见[步骤3执行规格](docs/步骤3_伤害执行规格与验收.md)。
+
+完整策划案已原样归档：[游戏策划案_最终整合版_V15.7.md](docs/游戏策划案_最终整合版_V15.7.md)。现有原型与V15.7的系统差异见[规则与代码对照表](docs/V15.7规则与代码对照表.md)。步骤1数据模型、步骤2事件内核及步骤3统一伤害与群体伤害已完成；同步击退、天气、Boss与完整单局仍按实施方案推进。天气已确认采用晴／雨／风及三项适应，覆盖原策划案的旧昼夜设计。

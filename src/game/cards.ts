@@ -1,7 +1,7 @@
 import { cards } from '../content/cards';
 import type { State, Card } from './state';
 import { shuffle } from './random';
-import { damageEnemy, healPlayer, losePlayerHp } from './resolution';
+import { damageEnemy, damageEnemies, healPlayer, losePlayerHp } from './resolution';
 import { recordEvent } from './events';
 import { registerListener } from './listeners';
 import { movePlayer, pushEnemy } from './movement';
@@ -18,7 +18,14 @@ export function executeCard(s: State, card: Card, target?: number, direction?: n
   for (const effect of definition.effects) {
     if (s.status !== 'playing') break;
     switch (effect.type) {
-      case 'damage': for (let i = 0; i < (effect.hits ?? 1); i++) { if (s.status !== 'playing' || !s.enemies.some(e => e.id === target)) break; damageEnemy(s, target!, effect.amount); } break;
+      case 'damage': for (let i = 0; i < (effect.hits ?? 1); i++) {
+        if (s.status !== 'playing' || !s.enemies.some(e => e.id === target)) break;
+        damageEnemy(s, target!, effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers });
+      } break;
+      case 'damageAll': for (let i = 0; i < (effect.hits ?? 1); i++) {
+        if (s.status !== 'playing' || !s.enemies.length) break;
+        damageEnemies(s, s.enemies.map(enemy => enemy.id), effect.amount, { kind: 'card', flat: effect.flat, multipliers: effect.multipliers });
+      } break;
       case 'draw': drawCards(s, effect.amount); break;
       case 'move': movePlayer(s, direction!, effect.amount); break;
       case 'push': pushEnemy(s, target!, effect.amount); break;

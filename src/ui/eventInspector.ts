@@ -4,7 +4,7 @@ const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<',
 // Opt-in development view only, enabled through ?debug=events.
 export function eventInspector(s: BattleState): string {
   const details = JSON.stringify({ phase: s.phase, status: s.status, finishReason: s.finishReason,
-    queue: s.eventQueue.map(event => event.id), listeners: s.listeners,
+    queue: s.eventQueue.map(event => event.id), listeners: s.listeners, damageModifiers: s.damageModifiers,
     events: s.eventHistory, trace: s.eventTrace }, null, 2);
   return `<details class="event-inspector"><summary>事件日志 · ${s.eventHistory.length}</summary><pre>${escape(details)}</pre></details>`;
 }

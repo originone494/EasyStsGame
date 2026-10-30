@@ -1,7 +1,19 @@
 // Shared data contracts. This module has no runtime dependencies on content or UI.
 export type InstanceId = number;
+export type DamageKind = 'card' | 'relic' | 'indirect' | 'contact';
+export type UnitRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number };
+export interface DamageTerm { value: number; coefficient: number }
+export interface DamageModifiers { flat?: number[]; multipliers?: number[] }
+export interface DamageOptions extends DamageModifiers { kind?: DamageKind; baseTerms?: DamageTerm[] }
+export interface DamageModifier extends DamageModifiers { id: string; kind?: DamageKind; target?: UnitRef }
+export interface DamageRequest extends DamageModifiers { target: UnitRef; base: number; kind: DamageKind; baseTerms?: DamageTerm[] }
+export interface DamageResult {
+  batchId: number; kind: DamageKind; target: UnitRef; base: number; flat: number[]; multipliers: number[];
+  baseTerms: DamageTerm[];
+  resolved: number; hpLost: number; hpBefore: number; hpAfter: number;
+}
 export type Effect =
-  | { type: 'damage'; amount: number; hits?: number }
+  | ({ type: 'damage' | 'damageAll'; amount: number; hits?: number } & DamageModifiers)
   | { type: 'draw' | 'heal' | 'push' | 'move' | 'loseHp'; amount: number }
   | { type: 'listen'; listener: ListenerDefinition };
 
@@ -51,6 +63,7 @@ export type EntityRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number 
 export interface EventContext { source: EntityRef; parentId: number | null; allowChain: boolean }
 export interface GameEvent extends EventContext {
   id: number; sequence: number; type: EventType; target: EntityRef | null; value: number; actor: EntityRef | null;
+  batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct';
 }
 export interface EventTrace {
   kind: 'enqueue' | 'dequeue' | 'snapshot' | 'trigger' | 'skip' | 'cancel' | 'finish';
@@ -60,12 +73,16 @@ export type TriggerCondition = { type: 'always' }
   | { type: 'missingHpAtLeast' | 'eventValueAtLeast'; value: number }
   | { type: 'sourceKind'; kind: EntityRef['kind'] }
   | { type: 'targetKind'; kind: EntityRef['kind'] }
+  | { type: 'damageKind'; kind: DamageKind }
+  | { type: 'hpLossCause'; cause: 'damage' | 'direct' }
   | { type: 'all'; conditions: TriggerCondition[] };
 // Non-target terms are frozen at dequeue. Target terms are read on execution.
 export type TriggerAmount = number | { base?: number; missingHp?: number; eventValue?: number; targetHp?: number; multiplier?: number };
 export type TriggerTarget = 'eventTarget' | 'nearest' | 'lowestHp' | 'random';
 export type TriggerEffect = { type: 'heal' | 'draw' | 'loseHp'; amount: TriggerAmount }
-  | { type: 'damage' | 'push'; amount: TriggerAmount; target: TriggerTarget }
+  | ({ type: 'damage'; amount: TriggerAmount; target: TriggerTarget } & DamageModifiers)
+  | ({ type: 'damageAll'; amount: TriggerAmount } & DamageModifiers)
+  | { type: 'push'; amount: TriggerAmount; target: TriggerTarget }
   | { type: 'setListenerActive'; listenerId: number | 'self'; active: boolean }
   | { type: 'listen'; listener: ListenerDefinition };
 export type TriggerLimit = { scope: 'unlimited' } | { scope: 'turn' | 'battle'; count: number };
@@ -92,6 +109,7 @@ export interface BattleState {
   lastKillPending: boolean; finishReason: FinishReason | null;
   eventQueue: GameEvent[]; eventHistory: GameEvent[]; eventTrace: EventTrace[];
   eventContext: EventContext | null; nextEventId: number; processingEvents: boolean;
+  damageModifiers: DamageModifier[]; nextDamageBatchId: number;
   listeners: ListenerState[]; nextListenerId: number; nextListenerOrder: number;
   log: string[]; events: BattleEvent[]; notice: string; scenario: string;
 }

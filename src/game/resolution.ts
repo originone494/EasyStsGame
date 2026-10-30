@@ -1,36 +1,24 @@
 import type { State } from './state';
+import type { DamageOptions } from './model';
 import { finishBattle, playerRef, recordEvent } from './events';
-export function damageEnemy(s: State, id: number, amount: number) {
-  const enemy = s.enemies.find(e => e.id === id); if (!enemy || s.status !== 'playing') return;
-  amount = Math.max(0, amount);
-  const before = enemy.hp;
-  enemy.hp = Math.max(0, enemy.hp - amount);
-  const target = { kind: 'enemy', id } as const;
-  const damage = recordEvent(s, 'DAMAGE_RESOLVED', { target, value: amount }, { type: 'damage', target: id, amount });
-  if (enemy.hp < before) recordEvent(s, 'HP_LOST', { target, value: before - enemy.hp, parentId: damage!.id });
-  s.log.push(`敌人 #${id} 受到 ${amount} 点伤害，剩余 ${enemy.hp} 生命。`);
-  if (enemy.hp === 0) {
-    s.enemies = s.enemies.filter(e => e.id !== id);
-    recordEvent(s, 'ENEMY_DIED', { target, parentId: damage!.id }, { type: 'death', target: id });
-    s.log.push(`敌人 #${id} 被击杀。`);
-    if (!s.enemies.length) { s.lastKillPending = true; s.phase = 'closing'; }
-  }
+import { inferDamageKind, resolveDamageBatch } from './damage';
+export function damageEnemy(s: State, id: number, amount: number, options: DamageOptions = {}) {
+  return resolveDamageBatch(s, [{ target: { kind: 'enemy', id }, base: amount,
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms }]);
 }
-export function damagePlayer(s: State, amount: number) {
-  if (s.status !== 'playing') return;
-  amount = Math.max(0, amount);
-  const before = s.player.hp;
-  s.player.hp = Math.max(0, before - amount);
-  const damage = recordEvent(s, 'DAMAGE_RESOLVED', { target: playerRef, value: amount }, { type: 'damage', amount });
-  if (s.player.hp < before) recordEvent(s, 'HP_LOST', { target: playerRef, value: before - s.player.hp, parentId: damage!.id });
-  s.log.push(`队伍受到 ${amount} 点伤害，生命 ${s.player.hp}。`);
-  if (s.player.hp === 0) finishBattle(s, 'lost', 'player-death');
+export function damageEnemies(s: State, ids: readonly number[], amount: number, options: DamageOptions = {}) {
+  return resolveDamageBatch(s, [...new Set(ids)].map(id => ({ target: { kind: 'enemy', id }, base: amount,
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms })));
+}
+export function damagePlayer(s: State, amount: number, options: DamageOptions = {}) {
+  return resolveDamageBatch(s, [{ target: playerRef, base: amount,
+    kind: options.kind ?? inferDamageKind(s), flat: options.flat, multipliers: options.multipliers, baseTerms: options.baseTerms }]);
 }
 export function losePlayerHp(s: State, amount: number) {
   if (s.status !== 'playing') return;
   const before = s.player.hp;
   s.player.hp = Math.max(0, before - Math.max(0, amount));
-  if (s.player.hp < before) recordEvent(s, 'HP_LOST', { target: playerRef, value: before - s.player.hp });
+  if (s.player.hp < before) recordEvent(s, 'HP_LOST', { target: playerRef, value: before - s.player.hp, hpLossCause: 'direct' });
   s.log.push(`队伍失去 ${before - s.player.hp} 点生命。`);
   if (s.player.hp === 0) finishBattle(s, 'lost', 'player-death');
 }

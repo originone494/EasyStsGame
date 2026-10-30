@@ -28,7 +28,7 @@ export function advanceEnemy(s: State, id: number) {
     if (next === s.player.position) {
       s.log.push(`敌人 #${id} 尝试进入队伍格，接触后消失。`);
       recordEvent(s, 'ENEMY_CONTACT', { target: playerRef, value: enemy.damage });
-      s.enemies = s.enemies.filter(e => e.id !== id); damagePlayer(s, enemy.damage);
+      s.enemies = s.enemies.filter(e => e.id !== id); damagePlayer(s, enemy.damage, { kind: 'contact' });
       if (s.status === 'playing' && !s.enemies.length) finishBattle(s, 'won', 'last-contact');
       return;
     }

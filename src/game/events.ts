@@ -1,10 +1,11 @@
-import type { BattleState, BattleEvent, EntityRef, EventContext, EventType, FinishReason, GameEvent } from './model';
+import type { BattleState, BattleEvent, DamageResult, EntityRef, EventContext, EventType, FinishReason, GameEvent } from './model';
 
 export const playerRef = { kind: 'player', id: 0 } as const;
 const systemContext: EventContext = { source: { kind: 'system', id: 'battle' }, parentId: null, allowChain: true };
 
 export function recordEvent(s: BattleState, type: EventType,
-  data: { target?: EntityRef; value?: number; parentId?: number; actor?: EntityRef } = {}, legacy?: BattleEvent): GameEvent | undefined {
+  data: { target?: EntityRef; value?: number; parentId?: number; actor?: EntityRef;
+    batchId?: number; damage?: DamageResult; hpLossCause?: 'damage' | 'direct' } = {}, legacy?: BattleEvent): GameEvent | undefined {
   if (s.status !== 'playing') return;
   const id = s.nextEventId++;
   const event: GameEvent = {
@@ -13,6 +14,9 @@ export function recordEvent(s: BattleState, type: EventType,
     actor: data.actor ? structuredClone(data.actor) : null,
   };
   if (data.parentId !== undefined) event.parentId = data.parentId;
+  if (data.batchId !== undefined) event.batchId = data.batchId;
+  if (data.damage) event.damage = structuredClone(data.damage);
+  if (data.hpLossCause) event.hpLossCause = data.hpLossCause;
   s.eventHistory.push(event);
   s.eventQueue.push(event);
   if (legacy) s.events.push(legacy);
