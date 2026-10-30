@@ -21,6 +21,7 @@ export const cards: Record<string, CardDefinition> = {
   debugWeather: { name: '天气攻击（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '造成10点基础伤害，享受当前天气对应的适应加成。', target: 'enemy', effects: [{ type: 'damage', amount: 10 }] },
   debugScoreKill: { name: '精准终结（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '对目标造成10点基础伤害，用于评分与奖励验收。', target: 'enemy', effects: [{ type: 'damage', amount: 10 }] },
   debugScoreChip: { name: '削弱（测试）', art: 'strike', kind: '开发用 · 不进入正式牌组', description: '对目标造成5点基础伤害，用于验证接触消失不补足评分。', target: 'enemy', effects: [{ type: 'damage', amount: 5 }] },
+  debugRoute: { name: '路线验证（测试）', art: 'combo', kind: '开发用 · 不进入正式牌组', description: '对全部敌人造成100点基础伤害，仅用于完整地图流程验收。', target: 'none', effects: [{ type: 'damageAll', amount: 100 }] },
 };
 export const basicStartingCards = ['strike', 'strike', 'step', 'step', 'push'];
 export function getStartingDeck(character: string): string[] {

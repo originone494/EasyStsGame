@@ -12,6 +12,10 @@ import { enemyOrder } from './game/turn';
 import { eventInspector } from './ui/eventInspector';
 import { weatherLabels } from './content/weather';
 import { continueBattle } from './game/progression';
+import type { RunState } from './game/model';
+import { acknowledgeRunReward, actInRun, createRun, currentNode, enterRunNode, leaveSafeNode } from './game/run';
+import { runInspector, runMap, safeNodeScreen } from './ui/map';
+import { createRunScenario } from './game/runScenarios';
 // Fixed test entries remain available via URL, with no developer text in the game HUD.
 const query = new URLSearchParams(location.search);
 const seedValue = Number(query.get('seed') ?? prototype.seed);
@@ -24,6 +28,8 @@ const floor = Number.isInteger(floorValue) && floorValue >= 1 && floorValue <= 3
 let state = scenario && scenarios.some(s => s.id === scenario) ? createScenario(scenario, seed)
  : query.get('battle')==='boss'?createBossBattle(floor,seed):createBattle(encounter, seed);
 let openingState = structuredClone(state);
+let run: RunState | null = query.get('mode')==='run'?(scenario==='runRoute'?createRunScenario(seed):createRun(seed)):null;
+let showingMap=Boolean(run), mapFloor=1, selectedNodeId=run?currentNode(run).id:undefined;
 let interaction: CardInteraction | undefined;
 let viewingPile: Pile | undefined;
 let feedback: {position:number;text:string;tone:string}[]=[];
@@ -36,10 +42,19 @@ function reset(next=false) {
 function newRun() {
  for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
  const search=query.toString();history.replaceState(null,'',`${location.pathname}${search?'?'+search:''}`);
- state=createBattle(0,seed);openingState=structuredClone(state);viewingPile=undefined;feedback=[];render();
+ viewingPile=undefined;feedback=[];
+ if(run){run=createRun(seed);showingMap=true;mapFloor=1;selectedNodeId=currentNode(run).id;render();return;}
+ state=createBattle(0,seed);openingState=structuredClone(state);render();
+}
+function startRun() {
+ for(const key of ['scenario','battle','floor','encounter'])query.delete(key);
+ query.set('mode','run');history.replaceState(null,'',`${location.pathname}?${query.toString()}`);
+ run=createRun(seed);showingMap=true;mapFloor=1;selectedNodeId=currentNode(run).id;viewingPile=undefined;feedback=[];render();
 }
 function perform(action:Action) {
- const previous:State=state;state=act(state,action);feedback=[];
+ const previous:State=state;
+ if(run){run=actInRun(run,action);state=run.battle!;}else state=act(state,action);
+ feedback=[];
  for(const e of state.events.slice(previous.events.length)){
   const position=e.target===undefined?previous.player.position:(previous.enemies.find(u=>u.id===e.target)?.position??state.enemies.find(u=>u.id===e.target)?.position??0);
   if(e.type==='damage')feedback.push({position,text:`−${e.amount}`,tone:'damage'});
@@ -55,8 +70,16 @@ function perform(action:Action) {
 }
 function render() {
  interaction?.cancel();
- app.innerHTML=`<div class="game-shell"><header class="game-header" ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><div class="brand"><span class="brand-emblem">✧</span><div>简单尖塔</div></div><div class="stats">${panels(state)}</div><nav><button data-action="restart" title="${state.boss?'重新开局':'重新开始当前战斗'}">${state.boss?'重新开局':'重新开始'}</button><button data-action="next">切换测试战斗</button></nav></header><main ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><section class="arena"><div class="initiative" aria-label="怪物行动顺序">${enemyOrder(state).map((id,i)=>`<span><b>${i+1}</b> #${id}</span>`).join('<i>›</i>')}</div><div class="scene-motes"><i></i><i></i><i></i><i></i><i></i></div><div class="battlefield-track">${battlefield(state)}</div><div class="combat-feedback" aria-hidden="true">${feedback.map((f,i)=>`<span class="floating-number ${f.tone}" style="left:${(f.position+.5)/state.size*100}%;--delay:${i*.12}s">${f.text}</span>`).join('')}</div><div class="hand-overlay" aria-label="悬浮手牌">${pileButton(state,'draw')}${hand(state)}${pileButton(state,'discard')}${pileButton(state,'exhaust')}<div class="action-bar"><div class="action-buttons"><button class="end-turn" data-action="end" ${state.status!=='playing'?'disabled':''}>结束回合 →</button></div></div></div></section></main>${result(state)}${viewingPile?pileBrowser(state,viewingPile):''}</div>`;
- if(query.get('debug') === 'events') app.insertAdjacentHTML('beforeend', eventInspector(state));
+ if(run&&(showingMap||run.runStatus==='map'||run.runStatus==='safe')){
+  const scroll=app.querySelector('.run-screen')?.scrollTop??0;
+  app.innerHTML=run.runStatus==='safe'&&!showingMap?safeNodeScreen(run):runMap(run,mapFloor,selectedNodeId);
+  if(query.get('debug')==='events')app.insertAdjacentHTML('beforeend',runInspector(run));
+  const screen=app.querySelector('.run-screen');if(screen)screen.scrollTop=scroll;
+  return;
+ }
+ if(run?.battle)state=run.battle;
+ app.innerHTML=`<div class="game-shell"><header class="game-header" ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><div class="brand"><span class="brand-emblem">✧</span><div>简单尖塔</div></div><div class="stats">${panels(state)}</div><nav>${run?'<button data-action="run-map">查看地图</button><button data-action="new-run">重新开局</button>':'<button data-action="start-run">开始冒险</button>'}${run?'':`<button data-action="restart" title="${state.boss?'重新开局':'重新开始当前战斗'}">${state.boss?'重新开局':'重新开始'}</button><button data-action="next">切换测试战斗</button>`}</nav></header><main ${state.status!=='playing'||viewingPile?'inert aria-hidden="true"':''}><section class="arena"><div class="initiative" aria-label="怪物行动顺序">${enemyOrder(state).map((id,i)=>`<span><b>${i+1}</b> #${id}</span>`).join('<i>›</i>')}</div><div class="scene-motes"><i></i><i></i><i></i><i></i><i></i></div><div class="battlefield-track">${battlefield(state)}</div><div class="combat-feedback" aria-hidden="true">${feedback.map((f,i)=>`<span class="floating-number ${f.tone}" style="left:${(f.position+.5)/state.size*100}%;--delay:${i*.12}s">${f.text}</span>`).join('')}</div><div class="hand-overlay" aria-label="悬浮手牌">${pileButton(state,'draw')}${hand(state)}${pileButton(state,'discard')}${pileButton(state,'exhaust')}<div class="action-bar"><div class="action-buttons"><button class="end-turn" data-action="end" ${state.status!=='playing'?'disabled':''}>结束回合 →</button></div></div></div></section></main>${result(state,run??undefined)}${viewingPile?pileBrowser(state,viewingPile):''}</div>`;
+ if(query.get('debug') === 'events') {app.insertAdjacentHTML('beforeend', eventInspector(state));if(run)app.insertAdjacentHTML('beforeend',runInspector(run));}
  if(viewingPile){
   const dialog=app.querySelector<HTMLDialogElement>('.pile-dialog')!;
   dialog.showModal();
@@ -66,7 +89,7 @@ function render() {
 interaction = new CardInteraction(app, {
  state: () => state,
  play: perform,
- notice: message => { state = { ...state, notice: message }; render(); },
+ notice: message => { state = { ...state, notice: message }; if(run?.battle)run.battle=state;render(); },
 });
 function closePile() {
  const previous=viewingPile;viewingPile=undefined;render();
@@ -80,9 +103,19 @@ app.addEventListener('click',event=>{
   return;
  }
  const button=(event.target as HTMLElement).closest<HTMLButtonElement>('button'); if(!button||button.disabled)return;
+ if(run&&button.dataset.mapFloor){const value=Number(button.dataset.mapFloor);if([1,2,3].includes(value)){mapFloor=value;selectedNodeId=undefined;render();app.querySelector('.run-screen')?.scrollTo(0,0);}return;}
+ if(run&&button.dataset.mapNode){selectedNodeId=button.dataset.mapNode;render();if(innerWidth<=800)app.querySelector('.node-detail')?.scrollIntoView({block:'start'});return;}
  const pile=button.dataset.pile??button.dataset.viewPile;
  if(isPile(pile)&&state.status==='playing'){viewingPile=pile;render();return;}
  switch(button.dataset.action){
+ case 'start-run':startRun();return;
+ case 'exit-run':run=null;query.delete('mode');showingMap=false;newRun();return;
+ case 'run-map':if(run){showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;viewingPile=undefined;render();}return;
+ case 'run-return':if(run){showingMap=false;render();}return;
+ case 'map-current':if(run){mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();app.querySelector('.run-screen')?.scrollTo(0,0);}return;
+ case 'run-enter':if(run?.runStatus==='map'&&button.dataset.nodeId===currentNode(run).id){run=enterRunNode(run,button.dataset.nodeId);showingMap=false;feedback=[];render();}return;
+ case 'safe-leave':if(run?.runStatus==='safe'&&button.dataset.nodeId===currentNode(run).id){run=leaveSafeNode(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;render();}return;
+ case 'run-ack':if(run?.runStatus==='reward'&&button.dataset.nodeId===currentNode(run).id){run=acknowledgeRunReward(run,button.dataset.nodeId);showingMap=true;mapFloor=run.currentFloor;selectedNodeId=currentNode(run).id;feedback=[];render();}return;
  case 'close-pile':closePile();return;
  case 'restart':if(state.boss)newRun();else reset();return;case 'next':reset(true);return;
  case 'new-run':newRun();return;

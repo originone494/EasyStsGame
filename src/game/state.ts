@@ -45,7 +45,7 @@ function initializeBattle(config: EncounterDefinition, encounter: number, seed: 
   const gold = options.gold ?? 0;
   if (!Number.isSafeInteger(gold) || gold < 0) throw new Error('开战金币配置无效。');
   const s: State = { encounter, seed: seed >>> 0, rng: deck.seed, turn: 1, size: prototype.size, handSize: prototype.handSize,
-    party: [{ id: 0, key: prototype.character }], deck: permanentDeck,
+    party: structuredClone(options.party ?? [{ id: 0, key: prototype.character }]) as State['party'], deck: permanentDeck,
     weather: createWeather(seed, encounter, options.initialWeather), attributes: createAttributes(options.attributes),
     player: { position: config.player, ...health },
     enemies: battleEnemies, boss, scoring: createScoring(battleEnemies.filter(enemy => enemy.id !== boss?.enemyId)),
@@ -56,6 +56,7 @@ function initializeBattle(config: EncounterDefinition, encounter: number, seed: 
     damageModifiers: [], nextDamageBatchId: 1,
     pushHistory: [], nextPushBatchId: 1,
     status: 'playing', phase: 'player', log: [`战斗开始。回合 1，补牌至 ${prototype.handSize} 张。`], events: [], notice: '', scenario: '' };
+  if (options.runContext) s.runContext = { ...options.runContext };
   for (const listener of listeners) registerListener(s, listener);
   startPlayerTurn(s);
   return s;

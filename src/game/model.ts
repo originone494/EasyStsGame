@@ -9,6 +9,7 @@ export interface WeatherState {
 export interface BattleOptions {
   initialWeather?: WeatherKind; attributes?: Partial<AdaptationAttributes>;
   gold?: number; player?: { hp: number; maxHp: number }; rewardConfig?: RewardConfig;
+  party?: readonly CharacterInstance[]; runContext?: { runId: string; nodeId: string };
 }
 export type DamageKind = 'card' | 'relic' | 'indirect' | 'contact';
 export type UnitRef = { kind: 'player'; id: 0 } | { kind: 'enemy'; id: number };
@@ -170,4 +171,28 @@ export interface BattleState {
   pushHistory: PushBatchResult[]; nextPushBatchId: number;
   listeners: ListenerState[]; nextListenerId: number; nextListenerOrder: number;
   log: string[]; events: BattleEvent[]; notice: string; scenario: string;
+  runContext?: { runId: string; nodeId: string };
+}
+
+export type MapNodeKind = 'battle' | 'elite' | 'boss' | 'shop' | 'campfire' | 'event';
+interface MapNodeBase { id: string; floor: number; seed: number }
+export interface BattleMapNode extends MapNodeBase {
+  kind: 'battle' | 'elite' | 'boss'; battleIndex: number; globalBattleIndex: number;
+  encounter: number; rewardConfig: RewardConfig;
+}
+export interface SafeMapNode extends MapNodeBase { kind: 'shop' | 'campfire' | 'event'; beforeBoss: boolean }
+export type MapNode = BattleMapNode | SafeMapNode;
+export interface MapGenerationConfig {
+  safeNodesPerFloor: number; minimumShops: number; minimumCampfires: number;
+  safeNodeWeights: { shop: number; campfire: number; event: number }; elitesPerFloor: number;
+  eliteBaseGold: number; eliteBaseAttributes: AdaptationAttributes;
+}
+export interface RunRewardRecord { nodeId: string; outcome: RewardOutcome }
+export interface RunState {
+  runId: string; seed: number; scenario: string; currentFloor: number; currentNodeIndex: number;
+  party: CharacterInstance[]; currentHP: number; maxHP: number; deck: CardInstance[];
+  relics: ListenerDefinition[]; gold: number; attributes: AdaptationAttributes;
+  mapNodes: MapNode[]; completedNodes: string[]; paidRemoveCount: number; paidUpgradeCount: number;
+  pendingReward: RunRewardRecord | null; rewardHistory: RunRewardRecord[];
+  runStatus: 'map' | 'battle' | 'safe' | 'reward' | 'lost' | 'won'; battle: BattleState | null;
 }
